@@ -101,8 +101,11 @@ const PlaceholderPage = ({ title }: { title: string }) => (
 )
 
 function App() {
+  // Use basename for GitHub Pages deployment
+  const basename = import.meta.env.BASE_URL || '/'
+  
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={basename}>
       <AuthProvider>
         <Routes>
           {/* Public routes */}

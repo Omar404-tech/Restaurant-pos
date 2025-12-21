@@ -10,7 +10,7 @@ interface Item {
   name_ar: string
   name: string
   purchase_price: number
-  unit?: { id: string; name_ar: string; code: string }
+  unit?: { id: string; name_ar: string; code: string } | null
 }
 
 interface BarcodeItemSelectorProps {
@@ -67,7 +67,8 @@ export default function BarcodeItemSelector({
       .order('name_ar')
     
     if (!error && data) {
-      setItems(fixEncodingInData(data) as Item[])
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setItems(fixEncodingInData(data) as any as Item[])
     }
   }
 

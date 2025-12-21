@@ -207,10 +207,17 @@ export const shiftsService = {
         existing.shifts_count += 1;
         existing.total_difference += shift.difference || 0;
       } else {
-        const cashierData = shift.cashier as unknown as { full_name?: string } | null;
+        // Handle cashier data - could be array or object from Supabase join
+        const rawCashier = shift.cashier as unknown;
+        let cashierName = 'Unknown';
+        if (Array.isArray(rawCashier) && rawCashier.length > 0) {
+          cashierName = (rawCashier[0] as { full_name?: string })?.full_name || 'Unknown';
+        } else if (rawCashier && typeof rawCashier === 'object') {
+          cashierName = (rawCashier as { full_name?: string })?.full_name || 'Unknown';
+        }
         cashierMap.set(cashierId, {
           cashier_id: cashierId,
-          cashier_name: cashierData?.full_name || 'Unknown',
+          cashier_name: cashierName,
           total_sales: shift.total_sales || 0,
           cash_sales: shift.cash_sales || 0,
           card_sales: shift.card_sales || 0,

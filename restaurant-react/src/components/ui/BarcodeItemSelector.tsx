@@ -67,7 +67,12 @@ export default function BarcodeItemSelector({
       .order('name_ar')
     
     if (!error && data) {
-      setItems(fixEncodingInData(data) as unknown as Item[])
+      // Transform data to match Item interface (unit is object, not array)
+      const transformedData = data.map((item: Record<string, unknown>) => ({
+        ...item,
+        unit: Array.isArray(item.unit) ? item.unit[0] || null : item.unit
+      }))
+      setItems(fixEncodingInData(transformedData) as unknown as Item[])
     }
   }
 

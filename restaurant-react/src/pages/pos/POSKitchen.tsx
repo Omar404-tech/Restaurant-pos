@@ -228,8 +228,8 @@ export default function POSKitchen() {
 
               {/* Order Items */}
               <div className="p-4 bg-white space-y-2">
-                {order.items && order.items.length > 0 ? (
-                  order.items.map(item => (
+                {(order.items ?? []).length > 0 ? (
+                  (order.items ?? []).map(item => (
                     <div key={item.id} className="flex items-center gap-3">
                       <span className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-sm">
                         {item.quantity}

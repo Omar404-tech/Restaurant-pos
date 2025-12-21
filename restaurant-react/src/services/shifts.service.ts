@@ -207,9 +207,10 @@ export const shiftsService = {
         existing.shifts_count += 1;
         existing.total_difference += shift.difference || 0;
       } else {
+        const cashierData = shift.cashier as unknown as { full_name?: string } | null;
         cashierMap.set(cashierId, {
           cashier_id: cashierId,
-          cashier_name: (shift.cashier as { full_name?: string } | null)?.full_name || 'Unknown',
+          cashier_name: cashierData?.full_name || 'Unknown',
           total_sales: shift.total_sales || 0,
           cash_sales: shift.cash_sales || 0,
           card_sales: shift.card_sales || 0,

@@ -67,8 +67,7 @@ export default function BarcodeItemSelector({
       .order('name_ar')
     
     if (!error && data) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setItems(fixEncodingInData(data) as any as Item[])
+      setItems(fixEncodingInData(data) as unknown as Item[])
     }
   }
 

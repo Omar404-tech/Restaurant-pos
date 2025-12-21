@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ supply.supply_number }} - Restaurant System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-boxes me-2"></i>{{ supply.supply_number }}</h2>
+    <a href="{% url 'suppliers:supply_list' %}" class="btn btn-secondary">
+        <i class="fas fa-arrow-right me-1"></i>رجوع
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header"><h5 class="mb-0">بيانات التوريد</h5></div>
+            <div class="card-body">
+                <table class="table table-borderless">
+                    <tr><th width="30%">رقم التوريد:</th><td>{{ supply.supply_number }}</td></tr>
+                    <tr><th>المورد:</th><td>{{ supply.supplier.name }}</td></tr>
+                    <tr><th>الفرع:</th><td>{{ supply.branch.name }}</td></tr>
+                    <tr><th>رقم الفاتورة:</th><td>{{ supply.invoice_number|default:"-" }}</td></tr>
+                    <tr><th>طريقة الدفع:</th><td>{% if supply.payment_method == 'cash' %}نقدي{% else %}آجل{% endif %}</td></tr>
+                    <tr><th>تاريخ الاستلام:</th><td>{{ supply.received_at|date:"Y-m-d H:i" }}</td></tr>
+                    <tr><th>المستلم:</th><td>{{ supply.received_by.username|default:"-" }}</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header"><h5 class="mb-0">ملخص المبالغ</h5></div>
+            <div class="card-body">
+                <table class="table table-borderless">
+                    <tr><th>المجموع:</th><td class="fw-bold">{{ supply.subtotal|floatformat:2 }} ج.م</td></tr>
+                    <tr><th>الخصم:</th><td>{{ supply.discount_amount|floatformat:2 }} ج.م</td></tr>
+                    <tr><th>الضريبة:</th><td>{{ supply.tax_amount|floatformat:2 }} ج.م</td></tr>
+                    <tr class="table-primary"><th>الإجمالي:</th><td class="fw-bold fs-5">{{ supply.total_amount|floatformat:2 }} ج.م</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header"><h5 class="mb-0">أصناف التوريد</h5></div>
+    <div class="card-body">
+        <table class="table">
+            <thead>
+                <tr><th>الصنف</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th></tr>
+            </thead>
+            <tbody>
+                {% for item in supply.items.all %}
+                <tr>
+                    <td>{{ item.item.name }}</td>
+                    <td>{{ item.quantity }}</td>
+                    <td>{{ item.unit_price|floatformat:2 }}</td>
+                    <td>{{ item.total_price|floatformat:2 }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="text-center">لا توجد أصناف</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

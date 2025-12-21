@@ -1,0 +1,240 @@
+{% extends 'base.html' %}
+
+{% block title %}لوحة التحكم - نظام إدارة المخزون{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2><i class="fas fa-home"></i>لوحة التحكم</h2>
+    <span class="text-muted">مرحباً {{ user.full_name|default:user.username }}</span>
+</div>
+
+<!-- Stats Cards -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="stat-card primary">
+            <i class="fas fa-boxes stat-icon"></i>
+            <div class="stat-content">
+                <div class="stat-value">{{ items_count|default:0 }}</div>
+                <div class="stat-label">إجمالي الأصناف</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="stat-card success">
+            <i class="fas fa-building stat-icon"></i>
+            <div class="stat-content">
+                <div class="stat-value">{{ branches_count|default:0 }}</div>
+                <div class="stat-label">الفروع</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="stat-card warning">
+            <i class="fas fa-exclamation-triangle stat-icon"></i>
+            <div class="stat-content">
+                <div class="stat-value">{{ low_stock_count|default:0 }}</div>
+                <div class="stat-label">مخزون منخفض</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="stat-card info">
+            <i class="fas fa-receipt stat-icon"></i>
+            <div class="stat-content">
+                <div class="stat-value">{{ today_orders|default:0 }}</div>
+                <div class="stat-label">طلبات اليوم</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-bolt me-2 text-warning"></i>إجراءات سريعة
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-2 col-sm-4 col-6 mb-3">
+                        <a href="{% url 'suppliers:supply_create' %}" class="quick-action">
+                            <i class="fas fa-dolly"></i>
+                            <span>توريد جديد</span>
+                        </a>
+                    </div>
+                    <div class="col-md-2 col-sm-4 col-6 mb-3">
+                        <a href="{% url 'transfers:create' %}" class="quick-action">
+                            <i class="fas fa-exchange-alt"></i>
+                            <span>تحويل جديد</span>
+                        </a>
+                    </div>
+                    <div class="col-md-2 col-sm-4 col-6 mb-3">
+                        <a href="{% url 'damages:create' %}" class="quick-action">
+                            <i class="fas fa-trash-alt"></i>
+                            <span>تسجيل تالف</span>
+                        </a>
+                    </div>
+                    <div class="col-md-2 col-sm-4 col-6 mb-3">
+                        <a href="{% url 'inventory:daily_count_create' %}" class="quick-action">
+                            <i class="fas fa-clipboard-list"></i>
+                            <span>جرد يومي</span>
+                        </a>
+                    </div>
+                    <div class="col-md-2 col-sm-4 col-6 mb-3">
+                        <a href="{% url 'suppliers:purchase_manager_dashboard' %}" class="quick-action">
+                            <i class="fas fa-shopping-cart"></i>
+                            <span>مدير المشتريات</span>
+                        </a>
+                    </div>
+                    <div class="col-md-2 col-sm-4 col-6 mb-3">
+                        <a href="{% url 'inventory:consumption_dashboard' %}" class="quick-action">
+                            <i class="fas fa-fire"></i>
+                            <span>استهلاك الطباخ</span>
+                        </a>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-2 col-sm-4 col-6 mb-3">
+                        <a href="{% url 'pos:cashier' %}" class="quick-action">
+                            <i class="fas fa-cash-register"></i>
+                            <span>نقطة البيع</span>
+                        </a>
+                    </div>
+                    <div class="col-md-2 col-sm-4 col-6 mb-3">
+                        <a href="{% url 'reports:index' %}" class="quick-action">
+                            <i class="fas fa-chart-bar"></i>
+                            <span>التقارير</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Recent Supplies -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-dolly me-2 text-primary"></i>آخر التوريدات</span>
+                <a href="{% url 'suppliers:supply_list' %}" class="btn btn-sm btn-outline-primary">عرض الكل</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>رقم التوريد</th>
+                                <th>المورد</th>
+                                <th>التاريخ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for supply in recent_supplies %}
+                            <tr>
+                                <td><a href="{% url 'suppliers:supply_detail' supply.pk %}">{{ supply.supply_number }}</a></td>
+                                <td>{{ supply.supplier.name }}</td>
+                                <td>{{ supply.received_at|date:"Y-m-d" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center text-muted py-4">
+                                    <i class="fas fa-inbox fa-2x mb-2 d-block"></i>
+                                    لا توجد توريدات حديثة
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Pending Transfers -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-exchange-alt me-2 text-warning"></i>تحويلات قيد الانتظار</span>
+                <a href="{% url 'transfers:list' %}" class="btn btn-sm btn-outline-warning">عرض الكل</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>رقم التحويل</th>
+                                <th>من</th>
+                                <th>إلى</th>
+                                <th>الحالة</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for transfer in pending_transfers %}
+                            <tr>
+                                <td><a href="{% url 'transfers:detail' transfer.pk %}">{{ transfer.transfer_number }}</a></td>
+                                <td>{{ transfer.from_branch.name }}</td>
+                                <td>{{ transfer.to_branch.name }}</td>
+                                <td><span class="badge bg-warning">قيد الانتظار</span></td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted py-4">
+                                    <i class="fas fa-check-circle fa-2x mb-2 d-block text-success"></i>
+                                    لا توجد تحويلات معلقة
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Low Stock Alert -->
+{% if low_stock_items %}
+<div class="row">
+    <div class="col-12">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <i class="fas fa-exclamation-triangle me-2"></i>تنبيه: أصناف بحاجة لإعادة طلب
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>الفرع</th>
+                                <th>الصنف</th>
+                                <th>الكمية الحالية</th>
+                                <th>الحد الأدنى</th>
+                                <th>إجراء</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for inv in low_stock_items %}
+                            <tr>
+                                <td>{{ inv.branch.name }}</td>
+                                <td>{{ inv.item.name }}</td>
+                                <td class="text-danger fw-bold">{{ inv.quantity }}</td>
+                                <td>{{ inv.min_quantity }}</td>
+                                <td>
+                                    <a href="{% url 'suppliers:supply_create' %}" class="btn btn-sm btn-danger">
+                                        <i class="fas fa-plus me-1"></i>طلب توريد
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ supplier.name }} - Restaurant System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-truck me-2"></i>{{ supplier.name }}</h2>
+    <div>
+        <a href="{% url 'suppliers:edit' supplier.pk %}" class="btn btn-warning">
+            <i class="fas fa-edit me-1"></i>تعديل
+        </a>
+        <a href="{% url 'suppliers:list' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-right me-1"></i>رجوع
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">بيانات المورد</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-borderless">
+                    <tr><th width="30%">الكود:</th><td>{{ supplier.code }}</td></tr>
+                    <tr><th>الاسم:</th><td>{{ supplier.name }}</td></tr>
+                    <tr><th>الهاتف:</th><td>{{ supplier.phone|default:"-" }}</td></tr>
+                    <tr><th>جهة الاتصال:</th><td>{{ supplier.contact_person|default:"-" }}</td></tr>
+                    <tr><th>العنوان:</th><td>{{ supplier.address|default:"-" }}</td></tr>
+                    <tr><th>طريقة الدفع:</th><td>{% if supplier.payment_method == 'cash' %}نقدي{% else %}آجل{% endif %}</td></tr>
+                    <tr><th>الرصيد الحالي:</th><td class="fw-bold text-primary">{{ supplier.current_balance|floatformat:2 }} ج.م</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between">
+                <h5 class="mb-0">آخر التوريدات</h5>
+                <a href="{% url 'suppliers:supply_list' %}?supplier={{ supplier.pk }}" class="btn btn-sm btn-outline-primary">عرض الكل</a>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <thead>
+                        <tr><th>رقم التوريد</th><th>التاريخ</th><th>المبلغ</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for supply in supplies %}
+                        <tr>
+                            <td>{{ supply.supply_number }}</td>
+                            <td>{{ supply.received_at|date:"Y-m-d" }}</td>
+                            <td>{{ supply.total_amount|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" class="text-center">لا توجد توريدات</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

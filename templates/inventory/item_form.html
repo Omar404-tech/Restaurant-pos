@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if edit %}تعديل{% else %}إضافة{% endif %} صنف - Restaurant System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-box me-2"></i>{% if edit %}تعديل{% else %}إضافة{% endif %} صنف</h2>
+    <a href="{% url 'inventory:item_list' %}" class="btn btn-secondary">
+        <i class="fas fa-arrow-right me-1"></i>رجوع
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">الكود *</label>
+                    <input type="text" name="code" class="form-control" value="{{ item.code|default:'' }}" {% if edit %}readonly{% else %}required{% endif %}>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">الاسم *</label>
+                    <input type="text" name="name" class="form-control" value="{{ item.name|default:'' }}" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">الفئة</label>
+                    <select name="category" class="form-select">
+                        <option value="">بدون فئة</option>
+                        {% for cat in categories %}
+                        <option value="{{ cat.pk }}" {% if item.category_id == cat.pk %}selected{% endif %}>{{ cat.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">الوحدة</label>
+                    <select name="unit" class="form-select">
+                        <option value="">بدون وحدة</option>
+                        {% for u in units %}
+                        <option value="{{ u.pk }}" {% if item.unit_id == u.pk %}selected{% endif %}>{{ u.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">سعر الشراء</label>
+                    <input type="number" name="purchase_price" class="form-control" step="0.01" value="{{ item.purchase_price|default:0 }}">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">الحد الأدنى للمخزون</label>
+                    <input type="number" name="min_stock_level" class="form-control" value="{{ item.min_stock_level|default:0 }}">
+                </div>
+                {% if edit %}
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">الحالة</label>
+                    <select name="status" class="form-select">
+                        <option value="active" {% if item.status == 'active' %}selected{% endif %}>نشط</option>
+                        <option value="inactive" {% if item.status == 'inactive' %}selected{% endif %}>غير نشط</option>
+                    </select>
+                </div>
+                {% endif %}
+            </div>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save me-1"></i>{% if edit %}تحديث{% else %}حفظ{% endif %}
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

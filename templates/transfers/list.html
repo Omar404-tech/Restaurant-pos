@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+
+{% block title %}التحويلات - نظام إدارة المخزون{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2><i class="fas fa-exchange-alt"></i>التحويلات</h2>
+    <a href="{% url 'transfers:create' %}" class="btn btn-primary">
+        <i class="fas fa-plus me-1"></i>تحويل جديد
+    </a>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">الحالة</label>
+                <select name="status" class="form-select">
+                    <option value="">كل الحالات</option>
+                    <option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>قيد الانتظار</option>
+                    <option value="approved" {% if request.GET.status == 'approved' %}selected{% endif %}>موافق عليه</option>
+                    <option value="received" {% if request.GET.status == 'received' %}selected{% endif %}>مستلم</option>
+                    <option value="cancelled" {% if request.GET.status == 'cancelled' %}selected{% endif %}>ملغي</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-filter me-1"></i>تصفية
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>رقم التحويل</th>
+                        <th>من فرع</th>
+                        <th>إلى فرع</th>
+                        <th>الحالة</th>
+                        <th>التاريخ</th>
+                        <th width="80">عرض</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for transfer in transfers %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'transfers:detail' transfer.pk %}" class="fw-bold text-primary">
+                                {{ transfer.transfer_number }}
+                            </a>
+                        </td>
+                        <td>
+                            <i class="fas fa-building me-1 text-danger"></i>
+                            {{ transfer.from_branch.name }}
+                        </td>
+                        <td>
+                            <i class="fas fa-building me-1 text-success"></i>
+                            {{ transfer.to_branch.name }}
+                        </td>
+                        <td>
+                            {% if transfer.status == 'pending' %}
+                            <span class="badge bg-warning"><i class="fas fa-clock me-1"></i>قيد الانتظار</span>
+                            {% elif transfer.status == 'approved' %}
+                            <span class="badge bg-info"><i class="fas fa-check me-1"></i>موافق عليه</span>
+                            {% elif transfer.status == 'received' %}
+                            <span class="badge bg-success"><i class="fas fa-check-double me-1"></i>مستلم</span>
+                            {% else %}
+                            <span class="badge bg-danger"><i class="fas fa-times me-1"></i>ملغي</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <i class="fas fa-calendar me-1 text-muted"></i>
+                            {{ transfer.created_at|date:"Y-m-d H:i" }}
+                        </td>
+                        <td>
+                            <a href="{% url 'transfers:detail' transfer.pk %}" class="btn btn-sm btn-outline-info">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6">
+                            <div class="empty-state">
+                                <i class="fas fa-exchange-alt"></i>
+                                <h5>لا توجد تحويلات</h5>
+                                <p>قم بإنشاء تحويل جديد بين الفروع</p>
+                                <a href="{% url 'transfers:create' %}" class="btn btn-primary">
+                                    <i class="fas fa-plus me-1"></i>تحويل جديد
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% include 'includes/pagination.html' with page_obj=transfers %}
+{% endblock %}

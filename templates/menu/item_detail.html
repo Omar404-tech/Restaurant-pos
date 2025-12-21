@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ item.name }} - Restaurant System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-utensils me-2"></i>{{ item.name }}</h2>
+    <div>
+        <a href="{% url 'menu:item_edit' item.pk %}" class="btn btn-warning"><i class="fas fa-edit me-1"></i>تعديل</a>
+        <a href="{% url 'menu:item_list' %}" class="btn btn-secondary"><i class="fas fa-arrow-right me-1"></i>رجوع</a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header"><h5 class="mb-0">بيانات الصنف</h5></div>
+            <div class="card-body">
+                <table class="table table-borderless">
+                    <tr><th width="30%">الكود:</th><td>{{ item.code }}</td></tr>
+                    <tr><th>الاسم:</th><td>{{ item.name }}</td></tr>
+                    <tr><th>الفئة:</th><td>{{ item.category.name|default:"-" }}</td></tr>
+                    <tr><th>السعر:</th><td class="fw-bold text-success">{{ item.price|floatformat:2 }} ج.م</td></tr>
+                    <tr><th>التكلفة:</th><td>{{ item.cost|floatformat:2 }} ج.م</td></tr>
+                    <tr><th>الربح:</th><td class="text-primary">{{ item.price|add:"-"|add:item.cost|floatformat:2 }} ج.م</td></tr>
+                    <tr><th>متاح:</th><td>{% if item.is_available %}<span class="badge bg-success">متاح</span>{% else %}<span class="badge bg-danger">غير متاح</span>{% endif %}</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

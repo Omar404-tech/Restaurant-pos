@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ transfer.transfer_number }} - Restaurant System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-exchange-alt me-2"></i>{{ transfer.transfer_number }}</h2>
+    <div>
+        {% if transfer.status == 'pending' %}
+        <form method="post" action="{% url 'transfers:approve' transfer.pk %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-success"><i class="fas fa-check me-1"></i>موافقة</button>
+        </form>
+        {% elif transfer.status == 'approved' %}
+        <form method="post" action="{% url 'transfers:receive' transfer.pk %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary"><i class="fas fa-box me-1"></i>استلام</button>
+        </form>
+        {% endif %}
+        <a href="{% url 'transfers:list' %}" class="btn btn-secondary"><i class="fas fa-arrow-right me-1"></i>رجوع</a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header"><h5 class="mb-0">بيانات التحويل</h5></div>
+            <div class="card-body">
+                <table class="table table-borderless">
+                    <tr><th width="30%">رقم التحويل:</th><td>{{ transfer.transfer_number }}</td></tr>
+                    <tr><th>من فرع:</th><td>{{ transfer.from_branch.name }}</td></tr>
+                    <tr><th>إلى فرع:</th><td>{{ transfer.to_branch.name }}</td></tr>
+                    <tr><th>الحالة:</th><td>
+                        {% if transfer.status == 'pending' %}<span class="badge bg-warning">قيد الانتظار</span>
+                        {% elif transfer.status == 'approved' %}<span class="badge bg-info">موافق عليه</span>
+                        {% elif transfer.status == 'received' %}<span class="badge bg-success">مستلم</span>
+                        {% else %}<span class="badge bg-danger">ملغي</span>{% endif %}
+                    </td></tr>
+                    <tr><th>طلب بواسطة:</th><td>{{ transfer.requested_by.username }}</td></tr>
+                    <tr><th>تاريخ الطلب:</th><td>{{ transfer.created_at|date:"Y-m-d H:i" }}</td></tr>
+                    {% if transfer.approved_by %}<tr><th>موافقة بواسطة:</th><td>{{ transfer.approved_by.username }}</td></tr>{% endif %}
+                    {% if transfer.received_by %}<tr><th>استلام بواسطة:</th><td>{{ transfer.received_by.username }}</td></tr>{% endif %}
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header"><h5 class="mb-0">أصناف التحويل</h5></div>
+    <div class="card-body">
+        <table class="table">
+            <thead><tr><th>الصنف</th><th>الكمية</th></tr></thead>
+            <tbody>
+                {% for item in transfer.items.all %}
+                <tr><td>{{ item.item.name }}</td><td>{{ item.quantity }}</td></tr>
+                {% empty %}
+                <tr><td colspan="2" class="text-center">لا توجد أصناف</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

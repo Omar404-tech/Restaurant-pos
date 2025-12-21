@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+
+{% block title %}الملف الشخصي - Restaurant System{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="fas fa-user me-2"></i> الملف الشخصي</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-edit me-2"></i> تعديل البيانات
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">اسم المستخدم</label>
+                            <input type="text" class="form-control" value="{{ user.username }}" disabled>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">كود الموظف</label>
+                            <input type="text" class="form-control" value="{{ user.employee_code|default:'-' }}" disabled>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">الاسم الكامل</label>
+                        <input type="text" name="full_name" class="form-control" value="{{ user.full_name }}" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">البريد الإلكتروني</label>
+                            <input type="email" name="email" class="form-control" value="{{ user.email }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">رقم الهاتف</label>
+                            <input type="text" name="phone" class="form-control" value="{{ user.phone }}">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">الدور</label>
+                            <input type="text" class="form-control" value="{{ user.role.name|default:'-' }}" disabled>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">الفرع</label>
+                            <input type="text" class="form-control" value="{{ user.branch.name|default:'-' }}" disabled>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i> حفظ التغييرات
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-info-circle me-2"></i> معلومات الحساب
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>تاريخ الإنشاء</span>
+                        <span>{{ user.created_at|date:"Y/m/d" }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>آخر تسجيل دخول</span>
+                        <span>{{ user.last_login|date:"Y/m/d H:i"|default:"-" }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>الحالة</span>
+                        <span class="badge bg-{{ user.status|yesno:'success,danger,warning' }}">{{ user.get_status_display }}</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <i class="fas fa-key me-2"></i> الأمان
+            </div>
+            <div class="card-body">
+                <a href="{% url 'accounts:change_password' %}" class="btn btn-outline-warning w-100">
+                    <i class="fas fa-lock me-2"></i> تغيير كلمة المرور
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

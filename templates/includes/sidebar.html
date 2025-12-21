@@ -1,0 +1,95 @@
+<nav id="sidebar" class="col-md-3 col-lg-2 d-md-block bg-light sidebar collapse">
+    <div class="position-sticky pt-3 sidebar-sticky">
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">
+                    <i class="fas fa-tachometer-alt me-2"></i> لوحة التحكم
+                </a>
+            </li>
+        </ul>
+        
+        <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+            <span>المبيعات</span>
+        </h6>
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'orders:list' %}">
+                    <i class="fas fa-receipt me-2"></i> الطلبات
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'menu:item_list' %}">
+                    <i class="fas fa-hamburger me-2"></i> المنيو
+                </a>
+            </li>
+        </ul>
+        
+        <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+            <span>المخزون</span>
+        </h6>
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'inventory:item_list' %}">
+                    <i class="fas fa-boxes me-2"></i> الأصناف
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'inventory:stock_list' %}">
+                    <i class="fas fa-warehouse me-2"></i> المخزون
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'transfers:list' %}">
+                    <i class="fas fa-exchange-alt me-2"></i> التحويلات
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'damages:list' %}">
+                    <i class="fas fa-trash-alt me-2"></i> التالف
+                </a>
+            </li>
+        </ul>
+        
+        <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+            <span>الموردين</span>
+        </h6>
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'suppliers:list' %}">
+                    <i class="fas fa-truck me-2"></i> الموردين
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'suppliers:supply_list' %}">
+                    <i class="fas fa-dolly me-2"></i> التوريدات
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'returns:supplier_list' %}">
+                    <i class="fas fa-undo me-2"></i> المرتجعات
+                </a>
+            </li>
+        </ul>
+        
+        <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+            <span>الإدارة</span>
+        </h6>
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'branches:list' %}">
+                    <i class="fas fa-store me-2"></i> الفروع
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'accounts:user_list' %}">
+                    <i class="fas fa-users me-2"></i> المستخدمين
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'reports:index' %}">
+                    <i class="fas fa-chart-bar me-2"></i> التقارير
+                </a>
+            </li>
+        </ul>
+    </div>
+</nav>

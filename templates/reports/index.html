@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+
+{% block title %}التقارير - نظام إدارة المخزون{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2><i class="fas fa-chart-bar"></i>التقارير</h2>
+</div>
+
+<div class="row">
+    <!-- Sales Report -->
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body text-center py-5">
+                <div class="mb-4">
+                    <i class="fas fa-cash-register fa-4x text-success"></i>
+                </div>
+                <h4>تقرير المبيعات</h4>
+                <p class="text-muted">عرض تقرير المبيعات اليومية والشهرية مع تفاصيل الطلبات</p>
+                <a href="{% url 'reports:sales' %}" class="btn btn-success btn-lg">
+                    <i class="fas fa-eye me-2"></i>عرض التقرير
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Inventory Report -->
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body text-center py-5">
+                <div class="mb-4">
+                    <i class="fas fa-warehouse fa-4x text-primary"></i>
+                </div>
+                <h4>تقرير المخزون</h4>
+                <p class="text-muted">عرض حالة المخزون في جميع الفروع والأصناف المنخفضة</p>
+                <a href="{% url 'reports:inventory' %}" class="btn btn-primary btn-lg">
+                    <i class="fas fa-eye me-2"></i>عرض التقرير
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Suppliers Report -->
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body text-center py-5">
+                <div class="mb-4">
+                    <i class="fas fa-truck fa-4x text-warning"></i>
+                </div>
+                <h4>تقرير الموردين</h4>
+                <p class="text-muted">عرض تقرير التوريدات والمدفوعات وأرصدة الموردين</p>
+                <a href="{% url 'reports:suppliers' %}" class="btn btn-warning btn-lg">
+                    <i class="fas fa-eye me-2"></i>عرض التقرير
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Stats -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-chart-line me-2"></i>إحصائيات سريعة
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-3 mb-3">
+                        <div class="border-end">
+                            <h2 class="text-primary mb-0">{{ total_items|default:0 }}</h2>
+                            <small class="text-muted">إجمالي الأصناف</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="border-end">
+                            <h2 class="text-success mb-0">{{ total_suppliers|default:0 }}</h2>
+                            <small class="text-muted">الموردين</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="border-end">
+                            <h2 class="text-warning mb-0">{{ total_orders|default:0 }}</h2>
+                            <small class="text-muted">الطلبات هذا الشهر</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div>
+                            <h2 class="text-danger mb-0">{{ low_stock|default:0 }}</h2>
+                            <small class="text-muted">أصناف منخفضة</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

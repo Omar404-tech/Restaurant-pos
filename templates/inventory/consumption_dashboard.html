@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+
+{% block title %}استهلاك الطباخ اليومي{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4><i class="fas fa-utensils me-2"></i>استهلاك الطباخ اليومي</h4>
+        <div>
+            <a href="{% url 'inventory:consumption_record' %}" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i>تسجيل جرد جديد
+            </a>
+            <a href="{% url 'inventory:consumption_report' %}" class="btn btn-outline-primary">
+                <i class="fas fa-chart-bar me-1"></i>تقرير الاستهلاك
+            </a>
+        </div>
+    </div>
+    
+    <!-- Today's Status -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="card {% if morning_count %}bg-success text-white{% else %}bg-warning{% endif %}">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6>جرد أول اليوم</h6>
+                            <h4>{{ today }}</h4>
+                        </div>
+                        <div>
+                            {% if morning_count %}
+                            <i class="fas fa-check-circle fa-2x"></i>
+                            {% else %}
+                            <i class="fas fa-clock fa-2x"></i>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if morning_count %}
+                    <small>تم بواسطة: {{ morning_count.counted_by.full_name|default:morning_count.counted_by.username }}</small>
+                    {% else %}
+                    <a href="{% url 'inventory:consumption_record' %}" class="btn btn-sm btn-light mt-2">تسجيل الآن</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card {% if evening_count %}bg-success text-white{% else %}bg-secondary text-white{% endif %}">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6>جرد آخر اليوم</h6>
+                            <h4>{{ today }}</h4>
+                        </div>
+                        <div>
+                            {% if evening_count %}
+                            <i class="fas fa-check-circle fa-2x"></i>
+                            {% else %}
+                            <i class="fas fa-moon fa-2x"></i>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if evening_count %}
+                    <small>تم بواسطة: {{ evening_count.counted_by.full_name|default:evening_count.counted_by.username }}</small>
+                    {% else %}
+                    <small>في انتظار نهاية اليوم</small>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6>الاستهلاك اليومي</h6>
+                            <h4>{% if consumption_data %}{{ consumption_data|length }} صنف{% else %}-{% endif %}</h4>
+                        </div>
+                        <div>
+                            <i class="fas fa-fire fa-2x"></i>
+                        </div>
+                    </div>
+                    <small>الاستهلاك = جرد الصباح - جرد المساء</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Today's Consumption -->
+    {% if consumption_data %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h6 class="mb-0"><i class="fas fa-fire me-2"></i>استهلاك اليوم</h6>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>الصنف</th>
+                        <th>جرد الصباح</th>
+                        <th>جرد المساء</th>
+                        <th>الاستهلاك</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in consumption_data %}
+                    <tr>
+                        <td>{{ item.item.name }}</td>
+                        <td>{{ item.morning }}</td>
+                        <td>{{ item.evening }}</td>
+                        <td class="{% if item.consumption > 0 %}text-danger{% else %}text-success{% endif %} fw-bold">
+                            {{ item.consumption }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Recent Counts -->
+    <div class="card">
+        <div class="card-header">
+            <h6 class="mb-0"><i class="fas fa-history me-2"></i>آخر عمليات الجرد</h6>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>التاريخ</th>
+                        <th>النوع</th>
+                        <th>الفرع</th>
+                        <th>الحالة</th>
+                        <th>بواسطة</th>
+                        <th>إجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for count in recent_counts %}
+                    <tr>
+                        <td>{{ count.count_date }}</td>
+                        <td>
+                            {% if count.count_type == 'morning' %}
+                            <span class="badge bg-warning"><i class="fas fa-sun me-1"></i>صباحي</span>
+                            {% else %}
+                            <span class="badge bg-dark"><i class="fas fa-moon me-1"></i>مسائي</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ count.branch.name }}</td>
+                        <td>
+                            {% if count.status == 'draft' %}
+                            <span class="badge bg-secondary">مسودة</span>
+                            {% elif count.status == 'submitted' %}
+                            <span class="badge bg-warning">مرسل</span>
+                            {% elif count.status == 'approved' %}
+                            <span class="badge bg-success">موافق</span>
+                            {% else %}
+                            <span class="badge bg-danger">{{ count.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ count.counted_by.full_name|default:count.counted_by.username }}</td>
+                        <td>
+                            <a href="{% url 'inventory:consumption_count_detail' count.pk %}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center text-muted py-4">لا توجد عمليات جرد</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

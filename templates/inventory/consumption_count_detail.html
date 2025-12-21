@@ -1,0 +1,170 @@
+{% extends 'base.html' %}
+
+{% block title %}تفاصيل الجرد{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4>
+            <i class="fas fa-clipboard-list me-2"></i>
+            جرد {{ count.count_date }} - 
+            {% if count.count_type == 'morning' %}صباحي{% else %}مسائي{% endif %}
+        </h4>
+        <div class="d-flex gap-2">
+            {% if count.status == 'draft' %}
+            <form method="post" action="{% url 'inventory:consumption_submit' count.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success"><i class="fas fa-paper-plane me-1"></i>إرسال للمراجعة</button>
+            </form>
+            {% elif count.status == 'submitted' %}
+            <form method="post" action="{% url 'inventory:consumption_approve' count.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success"><i class="fas fa-check me-1"></i>موافقة وتحديث المخزون</button>
+            </form>
+            {% endif %}
+            <a href="{% url 'inventory:consumption_dashboard' %}" class="btn btn-secondary">رجوع</a>
+        </div>
+    </div>
+    
+    <div class="row g-4">
+        <!-- Count Info -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header"><h6 class="mb-0">معلومات الجرد</h6></div>
+                <div class="card-body">
+                    <table class="table table-borderless">
+                        <tr><th>التاريخ:</th><td>{{ count.count_date }}</td></tr>
+                        <tr><th>النوع:</th><td>
+                            {% if count.count_type == 'morning' %}
+                            <span class="badge bg-warning"><i class="fas fa-sun me-1"></i>صباحي</span>
+                            {% else %}
+                            <span class="badge bg-dark"><i class="fas fa-moon me-1"></i>مسائي</span>
+                            {% endif %}
+                        </td></tr>
+                        <tr><th>الفرع:</th><td>{{ count.branch.name }}</td></tr>
+                        <tr><th>الحالة:</th><td>
+                            {% if count.status == 'draft' %}<span class="badge bg-secondary">مسودة</span>
+                            {% elif count.status == 'submitted' %}<span class="badge bg-warning">مرسل</span>
+                            {% elif count.status == 'approved' %}<span class="badge bg-success">موافق</span>
+                            {% else %}<span class="badge bg-danger">{{ count.status }}</span>{% endif %}
+                        </td></tr>
+                        <tr><th>بواسطة:</th><td>{{ count.counted_by.full_name|default:count.counted_by.username }}</td></tr>
+                        {% if count.approved_by %}
+                        <tr><th>الموافق:</th><td>{{ count.approved_by.full_name|default:count.approved_by.username }}</td></tr>
+                        <tr><th>تاريخ الموافقة:</th><td>{{ count.approved_at|date:"Y-m-d H:i" }}</td></tr>
+                        {% endif %}
+                    </table>
+                </div>
+            </div>
+            
+            {% if count.status == 'draft' %}
+            <div class="card mt-3">
+                <div class="card-header"><h6 class="mb-0">إضافة صنف سريع</h6></div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'inventory:consumption_add_item' count.pk %}">
+                        {% csrf_token %}
+                        <div class="mb-2">
+                            <select name="item" class="form-select form-select-sm" required>
+                                <option value="">اختر الصنف</option>
+                                {% for inv in inventory_items %}
+                                <option value="{{ inv.item.pk }}">{{ inv.item.name }} ({{ inv.quantity }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-2">
+                            <input type="number" name="actual_quantity" class="form-control form-control-sm" placeholder="الكمية الفعلية" step="0.001" required>
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-primary w-100">
+                            <i class="fas fa-plus me-1"></i>إضافة
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Items -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">الأصناف المجرودة</h6>
+                    {% if count.status == 'draft' %}
+                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addItemModal">
+                        <i class="fas fa-plus me-1"></i>إضافة صنف
+                    </button>
+                    {% endif %}
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>الصنف</th>
+                                <th>الكمية بالنظام</th>
+                                <th>الكمية الفعلية</th>
+                                <th>الفرق</th>
+                                <th>سبب الفرق</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in items %}
+                            <tr>
+                                <td>{{ item.item.name }}</td>
+                                <td>{{ item.system_quantity }}</td>
+                                <td>{{ item.actual_quantity }}</td>
+                                <td class="{% if item.variance != 0 %}text-danger fw-bold{% endif %}">
+                                    {{ item.variance }}
+                                </td>
+                                <td>{{ item.variance_reason|default:"-" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="5" class="text-center text-muted py-4">لا توجد أصناف - قم بإضافة أصناف</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card-footer">
+                    <strong>إجمالي الأصناف:</strong> {{ items|length }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Item Modal -->
+<div class="modal fade" id="addItemModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'inventory:consumption_add_item' count.pk %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title">إضافة صنف للجرد</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">الصنف <span class="text-danger">*</span></label>
+                        <select name="item" class="form-select" required>
+                            <option value="">اختر الصنف</option>
+                            {% for inv in inventory_items %}
+                            <option value="{{ inv.item.pk }}">{{ inv.item.name }} (كمية النظام: {{ inv.quantity }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">الكمية الفعلية <span class="text-danger">*</span></label>
+                        <input type="number" name="actual_quantity" class="form-control" step="0.001" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">سبب الفرق (إن وجد)</label>
+                        <textarea name="variance_reason" class="form-control" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary">إضافة</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

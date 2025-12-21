@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block title %}فئات المنيو - Restaurant System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-list me-2"></i>فئات المنيو</h2>
+    <a href="{% url 'menu:item_list' %}" class="btn btn-secondary">
+        <i class="fas fa-arrow-right me-1"></i>رجوع للمنيو
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>الاسم</th>
+                        <th>الترتيب</th>
+                        <th>الحالة</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cat in categories %}
+                    <tr>
+                        <td>{{ cat.name }}</td>
+                        <td>{{ cat.display_order }}</td>
+                        <td>
+                            {% if cat.is_active %}<span class="badge bg-success">نشط</span>
+                            {% else %}<span class="badge bg-danger">غير نشط</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" class="text-center">لا توجد فئات</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

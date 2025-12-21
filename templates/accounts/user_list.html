@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+
+{% block title %}المستخدمين - Restaurant System{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <h1><i class="fas fa-users me-2"></i> المستخدمين</h1>
+    <a href="{% url 'accounts:user_create' %}" class="btn btn-primary">
+        <i class="fas fa-plus me-2"></i> مستخدم جديد
+    </a>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <input type="text" name="search" class="form-control" placeholder="بحث..." value="{{ request.GET.search }}">
+            </div>
+            <div class="col-md-2">
+                <select name="role" class="form-select">
+                    <option value="">كل الأدوار</option>
+                    {% for role in roles %}
+                    <option value="{{ role.id }}" {% if request.GET.role == role.id|stringformat:"s" %}selected{% endif %}>{{ role.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select name="branch" class="form-select">
+                    <option value="">كل الفروع</option>
+                    {% for branch in branches %}
+                    <option value="{{ branch.id }}" {% if request.GET.branch == branch.id|stringformat:"s" %}selected{% endif %}>{{ branch.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select name="status" class="form-select">
+                    <option value="">كل الحالات</option>
+                    <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>نشط</option>
+                    <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>غير نشط</option>
+                    <option value="suspended" {% if request.GET.status == 'suspended' %}selected{% endif %}>موقوف</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-outline-primary me-2">
+                    <i class="fas fa-search"></i> بحث
+                </button>
+                <a href="{% url 'accounts:user_list' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-redo"></i> إعادة تعيين
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Users Table -->
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>اسم المستخدم</th>
+                        <th>الاسم الكامل</th>
+                        <th>الدور</th>
+                        <th>الفرع</th>
+                        <th>الحالة</th>
+                        <th>الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user_obj in users %}
+                    <tr>
+                        <td>{{ user_obj.username }}</td>
+                        <td>{{ user_obj.full_name }}</td>
+                        <td>{{ user_obj.role.name|default:"-" }}</td>
+                        <td>{{ user_obj.branch.name|default:"-" }}</td>
+                        <td>
+                            {% if user_obj.status == 'active' %}
+                            <span class="badge bg-success">نشط</span>
+                            {% elif user_obj.status == 'inactive' %}
+                            <span class="badge bg-secondary">غير نشط</span>
+                            {% else %}
+                            <span class="badge bg-danger">موقوف</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'accounts:user_edit' user_obj.pk %}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">لا يوجد مستخدمين</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% include 'includes/pagination.html' with page_obj=users %}
+{% endblock %}

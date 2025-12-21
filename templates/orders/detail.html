@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ order.order_number }} - Restaurant System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-receipt me-2"></i>{{ order.order_number }}</h2>
+    <div>
+        {% if order.status not in 'delivered,cancelled' %}
+        <form method="post" action="{% url 'orders:cancel' order.pk %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger" onclick="return confirm('هل أنت متأكد من إلغاء الطلب؟')">
+                <i class="fas fa-times me-1"></i>إلغاء
+            </button>
+        </form>
+        {% endif %}
+        <a href="{% url 'orders:list' %}" class="btn btn-secondary"><i class="fas fa-arrow-right me-1"></i>رجوع</a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header"><h5 class="mb-0">بيانات الطلب</h5></div>
+            <div class="card-body">
+                <table class="table table-borderless">
+                    <tr><th width="30%">رقم الطلب:</th><td>{{ order.order_number }}</td></tr>
+                    <tr><th>الفرع:</th><td>{{ order.branch.name }}</td></tr>
+                    <tr><th>النوع:</th><td>
+                        {% if order.order_type == 'dine_in' %}داخلي
+                        {% elif order.order_type == 'takeaway' %}تيك أواي
+                        {% else %}توصيل{% endif %}
+                    </td></tr>
+                    <tr><th>الحالة:</th><td>
+                        {% if order.status == 'pending' %}<span class="badge bg-warning">قيد الانتظار</span>
+                        {% elif order.status == 'preparing' %}<span class="badge bg-info">قيد التحضير</span>
+                        {% elif order.status == 'ready' %}<span class="badge bg-primary">جاهز</span>
+                        {% elif order.status == 'delivered' %}<span class="badge bg-success">تم التسليم</span>
+                        {% else %}<span class="badge bg-danger">ملغي</span>{% endif %}
+                    </td></tr>
+                    <tr><th>الكاشير:</th><td>{{ order.cashier.username|default:"-" }}</td></tr>
+                    <tr><th>التاريخ:</th><td>{{ order.created_at|date:"Y-m-d H:i" }}</td></tr>
+                    {% if order.table_number %}<tr><th>رقم الطاولة:</th><td>{{ order.table_number }}</td></tr>{% endif %}
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header"><h5 class="mb-0">ملخص المبالغ</h5></div>
+            <div class="card-body">
+                <table class="table table-borderless">
+                    <tr><th>المجموع:</th><td>{{ order.subtotal|floatformat:2 }} ج.م</td></tr>
+                    <tr><th>الخصم:</th><td>{{ order.discount_amount|floatformat:2 }} ج.م</td></tr>
+                    <tr><th>الضريبة:</th><td>{{ order.tax_amount|floatformat:2 }} ج.م</td></tr>
+                    <tr class="table-primary"><th>الإجمالي:</th><td class="fw-bold fs-5">{{ order.total_amount|floatformat:2 }} ج.م</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header"><h5 class="mb-0">أصناف الطلب</h5></div>
+    <div class="card-body">
+        <table class="table">
+            <thead><tr><th>الصنف</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th></tr></thead>
+            <tbody>
+                {% for item in order.items.all %}
+                <tr>
+                    <td>{{ item.menu_item.name }}</td>
+                    <td>{{ item.quantity }}</td>
+                    <td>{{ item.unit_price|floatformat:2 }}</td>
+                    <td>{{ item.total_price|floatformat:2 }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="text-center">لا توجد أصناف</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

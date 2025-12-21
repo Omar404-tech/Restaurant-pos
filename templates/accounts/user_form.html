@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if edit %}تعديل{% else %}إضافة{% endif %} مستخدم - Restaurant System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-user me-2"></i>{% if edit %}تعديل{% else %}إضافة{% endif %} مستخدم</h2>
+    <a href="{% url 'accounts:user_list' %}" class="btn btn-secondary">
+        <i class="fas fa-arrow-right me-1"></i>رجوع
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">اسم المستخدم *</label>
+                    <input type="text" name="username" class="form-control" value="{{ user_obj.username|default:'' }}" {% if edit %}readonly{% else %}required{% endif %}>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">الاسم الكامل *</label>
+                    <input type="text" name="full_name" class="form-control" value="{{ user_obj.full_name|default:'' }}" required>
+                </div>
+                {% if not edit %}
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">كلمة المرور *</label>
+                    <input type="password" name="password" class="form-control" required>
+                </div>
+                {% endif %}
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">البريد الإلكتروني</label>
+                    <input type="email" name="email" class="form-control" value="{{ user_obj.email|default:'' }}">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">الهاتف</label>
+                    <input type="text" name="phone" class="form-control" value="{{ user_obj.phone|default:'' }}">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">الدور</label>
+                    <select name="role" class="form-select">
+                        <option value="">بدون دور</option>
+                        {% for role in roles %}
+                        <option value="{{ role.pk }}" {% if user_obj.role_id == role.pk %}selected{% endif %}>{{ role.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">الفرع</label>
+                    <select name="branch" class="form-select">
+                        <option value="">بدون فرع</option>
+                        {% for branch in branches %}
+                        <option value="{{ branch.pk }}" {% if user_obj.branch_id == branch.pk %}selected{% endif %}>{{ branch.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% if edit %}
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">الحالة</label>
+                    <select name="status" class="form-select">
+                        <option value="active" {% if user_obj.status == 'active' %}selected{% endif %}>نشط</option>
+                        <option value="inactive" {% if user_obj.status == 'inactive' %}selected{% endif %}>غير نشط</option>
+                    </select>
+                </div>
+                {% endif %}
+            </div>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save me-1"></i>{% if edit %}تحديث{% else %}حفظ{% endif %}
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

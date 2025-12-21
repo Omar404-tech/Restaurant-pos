@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block title %}مرتجعات الموردين - Restaurant System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-undo me-2"></i>مرتجعات الموردين</h2>
+    <a href="{% url 'returns:supplier_create' %}" class="btn btn-primary">
+        <i class="fas fa-plus me-1"></i>مرتجع جديد
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>رقم المرتجع</th>
+                        <th>المورد</th>
+                        <th>الصنف</th>
+                        <th>الكمية</th>
+                        <th>الحالة</th>
+                        <th>التاريخ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for return in returns %}
+                    <tr>
+                        <td>{{ return.return_number }}</td>
+                        <td>{{ return.supplier.name }}</td>
+                        <td>{{ return.item.name }}</td>
+                        <td>{{ return.quantity }}</td>
+                        <td>
+                            {% if return.status == 'pending' %}<span class="badge bg-warning">قيد الانتظار</span>
+                            {% elif return.status == 'approved' %}<span class="badge bg-success">موافق عليه</span>
+                            {% else %}<span class="badge bg-danger">مرفوض</span>{% endif %}
+                        </td>
+                        <td>{{ return.created_at|date:"Y-m-d" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center">لا توجد مرتجعات</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% include 'includes/pagination.html' with page_obj=returns %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+
+{% block title %}تقرير الاستهلاك{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4><i class="fas fa-chart-bar me-2"></i>تقرير الاستهلاك اليومي</h4>
+        <a href="{% url 'inventory:consumption_dashboard' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-right me-1"></i>رجوع
+        </a>
+    </div>
+    
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">من تاريخ</label>
+                    <input type="date" name="start_date" class="form-control" value="{{ start_date|date:'Y-m-d' }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">إلى تاريخ</label>
+                    <input type="date" name="end_date" class="form-control" value="{{ end_date|date:'Y-m-d' }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">الفرع</label>
+                    <select name="branch" class="form-select">
+                        <option value="">كل الفروع</option>
+                        {% for branch in branches %}
+                        <option value="{{ branch.pk }}" {% if selected_branch == branch.pk|stringformat:"s" %}selected{% endif %}>{{ branch.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-filter me-1"></i>تصفية</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Report Table -->
+    <div class="card">
+        <div class="card-header">
+            <h6 class="mb-0">الاستهلاك اليومي ({{ start_date }} - {{ end_date }})</h6>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>التاريخ</th>
+                        <th>الفرع</th>
+                        <th>جرد الصباح</th>
+                        <th>جرد المساء</th>
+                        <th>الاستهلاك</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for day in daily_consumption %}
+                    <tr>
+                        <td>{{ day.date }}</td>
+                        <td>{{ day.branch.name }}</td>
+                        <td>{{ day.morning_total }}</td>
+                        <td>{{ day.evening_total }}</td>
+                        <td class="{% if day.consumption > 0 %}text-danger{% else %}text-success{% endif %} fw-bold">
+                            {{ day.consumption }}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-center text-muted py-4">لا توجد بيانات للفترة المحددة</td></tr>
+                    {% endfor %}
+                </tbody>
+                {% if daily_consumption %}
+                <tfoot class="table-light">
+                    <tr>
+                        <th colspan="4">الإجمالي</th>
+                        <th class="text-danger">
+                            {% with total=0 %}
+                            {% for day in daily_consumption %}
+                            {% endfor %}
+                            {% endwith %}
+                        </th>
+                    </tr>
+                </tfoot>
+                {% endif %}
+            </table>
+        </div>
+    </div>
+    
+    <!-- Info Box -->
+    <div class="alert alert-info mt-4">
+        <h6><i class="fas fa-info-circle me-2"></i>كيفية حساب الاستهلاك</h6>
+        <p class="mb-0">
+            <strong>الاستهلاك = جرد أول اليوم - جرد آخر اليوم + أي تحويلات مستلمة</strong><br>
+            الفرق يمثل ما تم استخدامه في التحضير خلال اليوم.
+        </p>
+    </div>
+</div>
+{% endblock %}

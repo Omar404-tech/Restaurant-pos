@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+
+{% block title %}تقرير المبيعات - Restaurant System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-cash-register me-2"></i>تقرير المبيعات</h2>
+    <a href="{% url 'reports:index' %}" class="btn btn-secondary">
+        <i class="fas fa-arrow-right me-1"></i>رجوع
+    </a>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">من تاريخ</label>
+                <input type="date" name="start_date" class="form-control" value="{{ request.GET.start_date }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">إلى تاريخ</label>
+                <input type="date" name="end_date" class="form-control" value="{{ request.GET.end_date }}">
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-search me-1"></i>بحث
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card bg-primary text-white">
+            <div class="card-body text-center">
+                <h3>{{ summary.total_orders }}</h3>
+                <p class="mb-0">إجمالي الطلبات</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center">
+                <h3>{{ summary.total_amount|floatformat:2 }} ج.م</h3>
+                <p class="mb-0">إجمالي المبيعات</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-info text-white">
+            <div class="card-body text-center">
+                <h3>{{ summary.total_tax|floatformat:2 }} ج.م</h3>
+                <p class="mb-0">إجمالي الضرائب</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header"><h5 class="mb-0">تفاصيل الطلبات</h5></div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>رقم الطلب</th>
+                        <th>الفرع</th>
+                        <th>النوع</th>
+                        <th>المبلغ</th>
+                        <th>الضريبة</th>
+                        <th>التاريخ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in orders %}
+                    <tr>
+                        <td>{{ order.order_number }}</td>
+                        <td>{{ order.branch.name }}</td>
+                        <td>{% if order.order_type == 'dine_in' %}داخلي{% elif order.order_type == 'takeaway' %}تيك أواي{% else %}توصيل{% endif %}</td>
+                        <td>{{ order.total_amount|floatformat:2 }}</td>
+                        <td>{{ order.tax_amount|floatformat:2 }}</td>
+                        <td>{{ order.created_at|date:"Y-m-d H:i" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center">لا توجد طلبات</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

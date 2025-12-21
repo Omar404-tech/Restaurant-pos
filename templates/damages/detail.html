@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ damage.damage_number }} - Restaurant System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-trash-alt me-2"></i>{{ damage.damage_number }}</h2>
+    <div>
+        {% if damage.status == 'pending' %}
+        <form method="post" action="{% url 'damages:approve' damage.pk %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-success"><i class="fas fa-check me-1"></i>موافقة</button>
+        </form>
+        {% endif %}
+        <a href="{% url 'damages:list' %}" class="btn btn-secondary"><i class="fas fa-arrow-right me-1"></i>رجوع</a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header"><h5 class="mb-0">بيانات التالف</h5></div>
+            <div class="card-body">
+                <table class="table table-borderless">
+                    <tr><th width="30%">رقم التالف:</th><td>{{ damage.damage_number }}</td></tr>
+                    <tr><th>الفرع:</th><td>{{ damage.branch.name }}</td></tr>
+                    <tr><th>الصنف:</th><td>{{ damage.item.name }}</td></tr>
+                    <tr><th>الكمية:</th><td>{{ damage.quantity }}</td></tr>
+                    <tr><th>تكلفة الوحدة:</th><td>{{ damage.unit_cost|floatformat:2 }} ج.م</td></tr>
+                    <tr><th>إجمالي التكلفة:</th><td class="fw-bold text-danger">{{ damage.total_cost|floatformat:2 }} ج.م</td></tr>
+                    <tr><th>السبب:</th><td>{{ damage.reason.name|default:"-" }}</td></tr>
+                    <tr><th>الوصف:</th><td>{{ damage.description|default:"-" }}</td></tr>
+                    <tr><th>الحالة:</th><td>
+                        {% if damage.status == 'pending' %}<span class="badge bg-warning">قيد الانتظار</span>
+                        {% elif damage.status == 'approved' %}<span class="badge bg-success">موافق عليه</span>
+                        {% else %}<span class="badge bg-danger">مرفوض</span>{% endif %}
+                    </td></tr>
+                    <tr><th>سجل بواسطة:</th><td>{{ damage.registered_by.username }}</td></tr>
+                    <tr><th>التاريخ:</th><td>{{ damage.created_at|date:"Y-m-d H:i" }}</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,284 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}نقطة البيع - نظام إدارة المخزون{% endblock %}
+
+{% block extra_css %}
+<style>
+    .pos-page main {
+        margin-right: 0 !important;
+        padding: 0 !important;
+    }
+    .pos-page .sidebar, .pos-page .footer {
+        display: none !important;
+    }
+    .pos-container {
+        display: flex;
+        height: calc(100vh - var(--navbar-height));
+        margin-top: var(--navbar-height);
+    }
+    .pos-menu {
+        flex: 1;
+        padding: 1rem;
+        overflow-y: auto;
+        background: #f5f6fa;
+    }
+    .pos-cart {
+        width: 400px;
+        background: #fff;
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid #eee;
+    }
+    .cart-header {
+        padding: 1rem;
+        background: var(--primary);
+        color: #fff;
+    }
+    .cart-items {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0.5rem;
+    }
+    .cart-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem;
+        border-bottom: 1px solid #eee;
+    }
+    .cart-item-name {
+        font-weight: 500;
+    }
+    .cart-item-qty {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .cart-item-qty input {
+        width: 50px;
+        text-align: center;
+    }
+    .cart-footer {
+        padding: 1rem;
+        background: #f8f9fa;
+        border-top: 1px solid #eee;
+    }
+    .cart-total {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--success);
+    }
+    .category-tabs {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+    }
+    .category-tab {
+        padding: 0.5rem 1rem;
+        background: #fff;
+        border: 2px solid #ddd;
+        border-radius: 20px;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    .category-tab:hover, .category-tab.active {
+        border-color: var(--secondary);
+        background: var(--secondary);
+        color: #fff;
+    }
+    .menu-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 1rem;
+    }
+    .menu-item-card {
+        background: #fff;
+        border-radius: 12px;
+        padding: 1rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+        border: 2px solid transparent;
+    }
+    .menu-item-card:hover {
+        border-color: var(--secondary);
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    .menu-item-card i {
+        font-size: 2rem;
+        color: var(--secondary);
+        margin-bottom: 0.5rem;
+    }
+    .menu-item-card .name {
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+    }
+    .menu-item-card .price {
+        color: var(--success);
+        font-weight: 700;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pos-page">
+    <div class="pos-container">
+        <!-- Cart -->
+        <div class="pos-cart">
+            <div class="cart-header">
+                <h5 class="mb-0"><i class="fas fa-shopping-cart me-2"></i>الطلب الحالي</h5>
+            </div>
+            <div class="cart-items" id="cartItems">
+                <div class="text-center text-muted py-5">
+                    <i class="fas fa-shopping-basket fa-3x mb-3"></i>
+                    <p>السلة فارغة</p>
+                    <small>اضغط على صنف لإضافته</small>
+                </div>
+            </div>
+            <div class="cart-footer">
+                <div class="d-flex justify-content-between mb-2">
+                    <span>المجموع:</span>
+                    <span id="subtotal">0.00 ج.م</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>الضريبة (14%):</span>
+                    <span id="tax">0.00 ج.م</span>
+                </div>
+                <hr>
+                <div class="d-flex justify-content-between mb-3">
+                    <span class="fw-bold">الإجمالي:</span>
+                    <span class="cart-total" id="total">0.00 ج.م</span>
+                </div>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-success btn-lg" onclick="checkout()">
+                        <i class="fas fa-check me-2"></i>إتمام الطلب
+                    </button>
+                    <button class="btn btn-outline-danger" onclick="clearCart()">
+                        <i class="fas fa-trash me-2"></i>إلغاء الطلب
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Menu -->
+        <div class="pos-menu">
+            <div class="category-tabs">
+                <span class="category-tab active" data-category="all">الكل</span>
+                {% for cat in categories %}
+                <span class="category-tab" data-category="{{ cat.id }}">{{ cat.name }}</span>
+                {% endfor %}
+            </div>
+            
+            <div class="menu-grid">
+                {% for item in items %}
+                <div class="menu-item-card" onclick="addToCart('{{ item.id }}', '{{ item.name }}', {{ item.price }})">
+                    <i class="fas fa-utensils"></i>
+                    <div class="name">{{ item.name }}</div>
+                    <div class="price">{{ item.price|floatformat:2 }} ج.م</div>
+                </div>
+                {% empty %}
+                <div class="col-12 text-center py-5">
+                    <i class="fas fa-utensils fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">لا توجد أصناف في المنيو</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let cart = [];
+
+function addToCart(id, name, price) {
+    const existing = cart.find(item => item.id === id);
+    if (existing) {
+        existing.qty++;
+    } else {
+        cart.push({ id, name, price, qty: 1 });
+    }
+    renderCart();
+}
+
+function removeFromCart(id) {
+    cart = cart.filter(item => item.id !== id);
+    renderCart();
+}
+
+function updateQty(id, qty) {
+    const item = cart.find(item => item.id === id);
+    if (item) {
+        item.qty = Math.max(1, parseInt(qty) || 1);
+    }
+    renderCart();
+}
+
+function clearCart() {
+    if (confirm('هل تريد إلغاء الطلب؟')) {
+        cart = [];
+        renderCart();
+    }
+}
+
+function renderCart() {
+    const container = document.getElementById('cartItems');
+    
+    if (cart.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-muted py-5">
+                <i class="fas fa-shopping-basket fa-3x mb-3"></i>
+                <p>السلة فارغة</p>
+                <small>اضغط على صنف لإضافته</small>
+            </div>
+        `;
+    } else {
+        container.innerHTML = cart.map(item => `
+            <div class="cart-item">
+                <div>
+                    <div class="cart-item-name">${item.name}</div>
+                    <small class="text-muted">${item.price.toFixed(2)} × ${item.qty}</small>
+                </div>
+                <div class="cart-item-qty">
+                    <input type="number" value="${item.qty}" min="1" 
+                           onchange="updateQty('${item.id}', this.value)" class="form-control form-control-sm">
+                    <button class="btn btn-sm btn-outline-danger" onclick="removeFromCart('${item.id}')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+    const tax = subtotal * 0.14;
+    const total = subtotal + tax;
+    
+    document.getElementById('subtotal').textContent = subtotal.toFixed(2) + ' ج.م';
+    document.getElementById('tax').textContent = tax.toFixed(2) + ' ج.م';
+    document.getElementById('total').textContent = total.toFixed(2) + ' ج.م';
+}
+
+function checkout() {
+    if (cart.length === 0) {
+        alert('السلة فارغة!');
+        return;
+    }
+    alert('تم إرسال الطلب للمطبخ!');
+    cart = [];
+    renderCart();
+}
+
+// Category filter
+document.querySelectorAll('.category-tab').forEach(tab => {
+    tab.addEventListener('click', function() {
+        document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
+        this.classList.add('active');
+    });
+});
+</script>
+{% endblock %}

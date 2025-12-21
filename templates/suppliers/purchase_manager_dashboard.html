@@ -1,0 +1,205 @@
+{% extends 'base.html' %}
+
+{% block title %}مدير المشتريات{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4><i class="fas fa-shopping-cart me-2"></i>لوحة تحكم مدير المشتريات</h4>
+        <div>
+            <a href="{% url 'suppliers:purchase_request_create' %}" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i>طلب شراء جديد
+            </a>
+        </div>
+    </div>
+    
+    <!-- Stats Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card stat-card bg-warning text-dark">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="text-muted">طلبات معلقة</h6>
+                            <h2>{{ pending_requests }}</h2>
+                        </div>
+                        <div class="stat-icon">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6>طلبات موافق عليها</h6>
+                            <h2>{{ approved_requests }}</h2>
+                        </div>
+                        <div class="stat-icon">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6>أوامر شراء قيد التنفيذ</h6>
+                            <h2>{{ pending_orders }}</h2>
+                        </div>
+                        <div class="stat-icon">
+                            <i class="fas fa-file-invoice"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card bg-danger text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6>أصناف منخفضة</h6>
+                            <h2>{{ low_stock|length }}</h2>
+                        </div>
+                        <div class="stat-icon">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row g-4">
+        <!-- Recent Requests -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="fas fa-list me-2"></i>آخر طلبات الشراء</h6>
+                    <a href="{% url 'suppliers:purchase_request_list' %}" class="btn btn-sm btn-outline-primary">عرض الكل</a>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>رقم الطلب</th>
+                                <th>الفرع</th>
+                                <th>الحالة</th>
+                                <th>التاريخ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for req in recent_requests %}
+                            <tr>
+                                <td><a href="{% url 'suppliers:purchase_request_detail' req.pk %}">{{ req.request_number }}</a></td>
+                                <td>{{ req.branch.name }}</td>
+                                <td>
+                                    {% if req.status == 'pending' %}
+                                    <span class="badge bg-warning">معلق</span>
+                                    {% elif req.status == 'approved' %}
+                                    <span class="badge bg-success">موافق</span>
+                                    {% elif req.status == 'rejected' %}
+                                    <span class="badge bg-danger">مرفوض</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">{{ req.status }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ req.request_date }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="4" class="text-center text-muted">لا توجد طلبات</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recent Orders -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="fas fa-file-invoice me-2"></i>آخر أوامر الشراء</h6>
+                    <a href="{% url 'suppliers:purchase_order_list' %}" class="btn btn-sm btn-outline-primary">عرض الكل</a>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>رقم الأمر</th>
+                                <th>المورد</th>
+                                <th>الحالة</th>
+                                <th>المبلغ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for order in recent_orders %}
+                            <tr>
+                                <td><a href="{% url 'suppliers:purchase_order_detail' order.pk %}">{{ order.order_number }}</a></td>
+                                <td>{{ order.supplier.name }}</td>
+                                <td>
+                                    {% if order.status == 'sent' %}
+                                    <span class="badge bg-info">مرسل</span>
+                                    {% elif order.status == 'completed' %}
+                                    <span class="badge bg-success">مكتمل</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">{{ order.status }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ order.total_amount }} ج.م</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="4" class="text-center text-muted">لا توجد أوامر</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Low Stock Alert -->
+    {% if low_stock %}
+    <div class="card mt-4">
+        <div class="card-header bg-danger text-white">
+            <h6 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>تنبيه: أصناف تحتاج إعادة طلب</h6>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>الصنف</th>
+                        <th>الفرع</th>
+                        <th>الكمية الحالية</th>
+                        <th>الحد الأدنى</th>
+                        <th>إجراء</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inv in low_stock %}
+                    <tr>
+                        <td>{{ inv.item.name }}</td>
+                        <td>{{ inv.branch.name }}</td>
+                        <td class="text-danger fw-bold">{{ inv.quantity }}</td>
+                        <td>{{ inv.min_quantity }}</td>
+                        <td>
+                            <a href="{% url 'suppliers:purchase_request_create' %}" class="btn btn-sm btn-primary">
+                                <i class="fas fa-plus"></i> طلب شراء
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

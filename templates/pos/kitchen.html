@@ -1,0 +1,229 @@
+{% extends 'base.html' %}
+
+{% block title %}شاشة المطبخ - نظام إدارة المخزون{% endblock %}
+
+{% block extra_css %}
+<style>
+    .kitchen-page main {
+        margin-right: 0 !important;
+        background: #1a1a2e;
+        min-height: calc(100vh - var(--navbar-height));
+    }
+    .kitchen-page .sidebar, .kitchen-page .footer {
+        display: none !important;
+    }
+    .kitchen-header {
+        background: #16213e;
+        padding: 1rem 2rem;
+        color: #fff;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .kitchen-header h4 {
+        margin: 0;
+    }
+    .kitchen-stats {
+        display: flex;
+        gap: 2rem;
+    }
+    .kitchen-stat {
+        text-align: center;
+    }
+    .kitchen-stat .value {
+        font-size: 2rem;
+        font-weight: 700;
+    }
+    .kitchen-stat .label {
+        font-size: 0.85rem;
+        opacity: 0.8;
+    }
+    .kitchen-stat.pending .value { color: #f39c12; }
+    .kitchen-stat.preparing .value { color: #3498db; }
+    .kitchen-stat.ready .value { color: #27ae60; }
+    
+    .orders-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1rem;
+        padding: 1.5rem;
+    }
+    .kitchen-order {
+        background: #fff;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+    }
+    .kitchen-order-header {
+        padding: 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        color: #fff;
+    }
+    .kitchen-order.pending .kitchen-order-header { background: #f39c12; }
+    .kitchen-order.preparing .kitchen-order-header { background: #3498db; }
+    .kitchen-order.ready .kitchen-order-header { background: #27ae60; }
+    .kitchen-order.urgent .kitchen-order-header { 
+        background: #e74c3c; 
+        animation: pulse 1s infinite;
+    }
+    
+    .order-number {
+        font-weight: 700;
+        font-size: 1.2rem;
+    }
+    .order-time {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+    .kitchen-order-body {
+        padding: 1rem;
+    }
+    .order-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border-bottom: 1px dashed #eee;
+    }
+    .order-item:last-child {
+        border-bottom: none;
+    }
+    .order-item-qty {
+        background: #f8f9fa;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-weight: 700;
+    }
+    .kitchen-order-footer {
+        padding: 1rem;
+        background: #f8f9fa;
+        display: flex;
+        gap: 0.5rem;
+    }
+    .kitchen-order-footer .btn {
+        flex: 1;
+    }
+    
+    .empty-kitchen {
+        text-align: center;
+        padding: 5rem;
+        color: #fff;
+    }
+    .empty-kitchen i {
+        font-size: 5rem;
+        opacity: 0.3;
+        margin-bottom: 1rem;
+    }
+    .empty-kitchen h4 {
+        opacity: 0.7;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="kitchen-page">
+    <div class="kitchen-header">
+        <h4><i class="fas fa-utensils me-2"></i>شاشة المطبخ</h4>
+        <div class="kitchen-stats">
+            <div class="kitchen-stat pending">
+                <div class="value" id="pendingCount">{{ orders|length }}</div>
+                <div class="label">قيد الانتظار</div>
+            </div>
+            <div class="kitchen-stat preparing">
+                <div class="value">0</div>
+                <div class="label">قيد التحضير</div>
+            </div>
+            <div class="kitchen-stat ready">
+                <div class="value">0</div>
+                <div class="label">جاهز</div>
+            </div>
+        </div>
+        <div>
+            <span class="badge bg-light text-dark fs-5" id="currentTime"></span>
+        </div>
+    </div>
+    
+    <div class="orders-grid">
+        {% for order in orders %}
+        <div class="kitchen-order pending">
+            <div class="kitchen-order-header">
+                <div>
+                    <div class="order-number">#{{ order.order_number|slice:"-6:" }}</div>
+                    <div class="order-time">
+                        <i class="fas fa-clock me-1"></i>
+                        {{ order.created_at|time:"H:i" }}
+                    </div>
+                </div>
+                <div>
+                    {% if order.order_type == 'dine_in' %}
+                    <span class="badge bg-light text-dark">طاولة {{ order.table_number|default:"--" }}</span>
+                    {% elif order.order_type == 'takeaway' %}
+                    <span class="badge bg-warning">تيك أواي</span>
+                    {% else %}
+                    <span class="badge bg-info">توصيل</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="kitchen-order-body">
+                {% for item in order.items.all %}
+                <div class="order-item">
+                    <span>{{ item.menu_item.name }}</span>
+                    <span class="order-item-qty">× {{ item.quantity }}</span>
+                </div>
+                {% empty %}
+                <p class="text-muted text-center">لا توجد أصناف</p>
+                {% endfor %}
+                {% if order.notes %}
+                <div class="alert alert-warning mt-2 mb-0 py-2">
+                    <i class="fas fa-sticky-note me-1"></i>{{ order.notes }}
+                </div>
+                {% endif %}
+            </div>
+            <div class="kitchen-order-footer">
+                <button class="btn btn-primary" onclick="startPreparing('{{ order.id }}')">
+                    <i class="fas fa-fire me-1"></i>بدء التحضير
+                </button>
+                <button class="btn btn-success" onclick="markReady('{{ order.id }}')">
+                    <i class="fas fa-check me-1"></i>جاهز
+                </button>
+            </div>
+        </div>
+        {% empty %}
+        <div class="empty-kitchen" style="grid-column: 1 / -1;">
+            <i class="fas fa-check-circle"></i>
+            <h4>لا توجد طلبات حالياً</h4>
+            <p>في انتظار طلبات جديدة...</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Update time
+function updateTime() {
+    const now = new Date();
+    document.getElementById('currentTime').textContent = now.toLocaleTimeString('ar-EG');
+}
+setInterval(updateTime, 1000);
+updateTime();
+
+function startPreparing(orderId) {
+    alert('بدء تحضير الطلب');
+}
+
+function markReady(orderId) {
+    alert('الطلب جاهز للتسليم');
+}
+
+// Auto refresh every 30 seconds
+setTimeout(() => location.reload(), 30000);
+</script>
+{% endblock %}

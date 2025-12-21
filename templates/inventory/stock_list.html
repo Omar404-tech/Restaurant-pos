@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+
+{% block title %}المخزون - نظام إدارة المخزون{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2><i class="fas fa-warehouse"></i>المخزون</h2>
+    <a href="{% url 'inventory:low_stock' %}" class="btn btn-danger">
+        <i class="fas fa-exclamation-triangle me-1"></i>المخزون المنخفض
+    </a>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label">الفرع</label>
+                <select name="branch" class="form-select">
+                    <option value="">كل الفروع</option>
+                    {% for b in branches %}
+                    <option value="{{ b.pk }}" {% if request.GET.branch == b.pk|stringformat:"i" %}selected{% endif %}>{{ b.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-filter me-1"></i>تصفية
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>الفرع</th>
+                        <th>الصنف</th>
+                        <th>الكمية</th>
+                        <th>جزئي</th>
+                        <th>محتوى</th>
+                        <th>الإجمالي</th>
+                        <th>الحد الأدنى</th>
+                        <th>الحالة</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inv in inventory %}
+                    <tr class="{% if inv.quantity <= inv.min_quantity %}table-danger{% endif %}">
+                        <td>
+                            <i class="fas fa-building me-1 text-muted"></i>
+                            {{ inv.branch.name }}
+                        </td>
+                        <td>
+                            <strong>{{ inv.item.name }}</strong>
+                            <br><small class="text-muted">{{ inv.item.code }}</small>
+                        </td>
+                        <td>
+                            <span class="{% if inv.quantity <= inv.min_quantity %}text-danger fw-bold{% endif %}">
+                                {{ inv.quantity }}
+                            </span>
+                        </td>
+                        <td>{{ inv.partial|default:0 }}</td>
+                        <td>{{ inv.content|default:0 }}</td>
+                        <td><strong>{{ inv.total|default:0 }}</strong></td>
+                        <td>{{ inv.min_quantity }}</td>
+                        <td>
+                            {% if inv.quantity <= inv.min_quantity %}
+                            <span class="badge bg-danger">
+                                <i class="fas fa-exclamation-triangle me-1"></i>منخفض
+                            </span>
+                            {% elif inv.quantity <= inv.min_quantity|add:5 %}
+                            <span class="badge bg-warning">تحذير</span>
+                            {% else %}
+                            <span class="badge bg-success">متوفر</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8">
+                            <div class="empty-state">
+                                <i class="fas fa-warehouse"></i>
+                                <h5>لا يوجد مخزون</h5>
+                                <p>قم بإضافة توريدات لتحديث المخزون</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% include 'includes/pagination.html' with page_obj=inventory %}
+{% endblock %}

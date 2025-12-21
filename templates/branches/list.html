@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% block title %}الفروع - نظام إدارة المخزون{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2><i class="fas fa-building"></i>الفروع</h2>
+    <a href="{% url 'branches:create' %}" class="btn btn-primary">
+        <i class="fas fa-plus me-1"></i>إضافة فرع
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>الكود</th>
+                        <th>الاسم</th>
+                        <th>النوع</th>
+                        <th>الهاتف</th>
+                        <th>الحالة</th>
+                        <th width="120">الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for branch in branches %}
+                    <tr>
+                        <td><span class="badge bg-secondary">{{ branch.code }}</span></td>
+                        <td>
+                            <strong>{{ branch.name }}</strong>
+                            {% if branch.name_ar %}<br><small class="text-muted">{{ branch.name_ar }}</small>{% endif %}
+                        </td>
+                        <td>
+                            {% if branch.branch_type == 'main' %}
+                            <span class="badge bg-primary"><i class="fas fa-star me-1"></i>رئيسي</span>
+                            {% else %}
+                            <span class="badge bg-info">فرع</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ branch.phone|default:"-" }}</td>
+                        <td>
+                            {% if branch.status == 'active' %}
+                            <span class="status-dot active"></span>نشط
+                            {% else %}
+                            <span class="status-dot inactive"></span>غير نشط
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'branches:detail' branch.pk %}" class="btn btn-sm btn-outline-info" title="عرض">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="{% url 'branches:edit' branch.pk %}" class="btn btn-sm btn-outline-warning" title="تعديل">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6">
+                            <div class="empty-state">
+                                <i class="fas fa-building"></i>
+                                <h5>لا توجد فروع</h5>
+                                <p>قم بإضافة فرع جديد للبدء</p>
+                                <a href="{% url 'branches:create' %}" class="btn btn-primary">
+                                    <i class="fas fa-plus me-1"></i>إضافة فرع
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

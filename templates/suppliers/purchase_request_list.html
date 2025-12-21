@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+
+{% block title %}طلبات الشراء{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4><i class="fas fa-clipboard-list me-2"></i>طلبات الشراء</h4>
+        <a href="{% url 'suppliers:purchase_request_create' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i>طلب جديد
+        </a>
+    </div>
+    
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <select name="status" class="form-select">
+                        <option value="">كل الحالات</option>
+                        {% for value, label in status_choices %}
+                        <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <select name="branch" class="form-select">
+                        <option value="">كل الفروع</option>
+                        {% for branch in branches %}
+                        <option value="{{ branch.pk }}" {% if request.GET.branch == branch.pk|stringformat:"s" %}selected{% endif %}>{{ branch.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-secondary"><i class="fas fa-filter me-1"></i>تصفية</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Requests Table -->
+    <div class="card">
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>رقم الطلب</th>
+                        <th>التاريخ</th>
+                        <th>الفرع</th>
+                        <th>عدد الأصناف</th>
+                        <th>الأولوية</th>
+                        <th>الحالة</th>
+                        <th>طالب الشراء</th>
+                        <th>إجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for req in requests %}
+                    <tr>
+                        <td><a href="{% url 'suppliers:purchase_request_detail' req.pk %}">{{ req.request_number }}</a></td>
+                        <td>{{ req.request_date }}</td>
+                        <td>{{ req.branch.name }}</td>
+                        <td>{{ req.total_items }}</td>
+                        <td>
+                            {% if req.priority == 1 %}
+                            <span class="badge bg-success">عادي</span>
+                            {% elif req.priority == 2 %}
+                            <span class="badge bg-warning">متوسط</span>
+                            {% else %}
+                            <span class="badge bg-danger">عاجل</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if req.status == 'draft' %}
+                            <span class="badge bg-secondary">مسودة</span>
+                            {% elif req.status == 'pending' %}
+                            <span class="badge bg-warning">معلق</span>
+                            {% elif req.status == 'approved' %}
+                            <span class="badge bg-success">موافق</span>
+                            {% elif req.status == 'rejected' %}
+                            <span class="badge bg-danger">مرفوض</span>
+                            {% elif req.status == 'ordered' %}
+                            <span class="badge bg-info">تم الطلب</span>
+                            {% elif req.status == 'completed' %}
+                            <span class="badge bg-primary">مكتمل</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ req.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ req.requested_by.full_name|default:req.requested_by.username }}</td>
+                        <td>
+                            <a href="{% url 'suppliers:purchase_request_detail' req.pk %}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="8" class="text-center text-muted py-4">لا توجد طلبات شراء</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    {% include 'includes/pagination.html' with page_obj=requests %}
+</div>
+{% endblock %}

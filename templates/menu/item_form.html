@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if edit %}تعديل{% else %}إضافة{% endif %} صنف منيو - Restaurant System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-utensils me-2"></i>{% if edit %}تعديل{% else %}إضافة{% endif %} صنف منيو</h2>
+    <a href="{% url 'menu:item_list' %}" class="btn btn-secondary">
+        <i class="fas fa-arrow-right me-1"></i>رجوع
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">الكود *</label>
+                    <input type="text" name="code" class="form-control" value="{{ item.code|default:'' }}" {% if edit %}readonly{% else %}required{% endif %}>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">الاسم *</label>
+                    <input type="text" name="name" class="form-control" value="{{ item.name|default:'' }}" required>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">الفئة</label>
+                    <select name="category" class="form-select">
+                        <option value="">بدون فئة</option>
+                        {% for cat in categories %}
+                        <option value="{{ cat.pk }}" {% if item.category_id == cat.pk %}selected{% endif %}>{{ cat.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">السعر</label>
+                    <input type="number" name="price" class="form-control" step="0.01" value="{{ item.price|default:0 }}">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">التكلفة</label>
+                    <input type="number" name="cost" class="form-control" step="0.01" value="{{ item.cost|default:0 }}">
+                </div>
+                {% if edit %}
+                <div class="col-md-6 mb-3">
+                    <div class="form-check mt-4">
+                        <input type="checkbox" name="is_available" class="form-check-input" id="is_available" {% if item.is_available %}checked{% endif %}>
+                        <label class="form-check-label" for="is_available">متاح</label>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save me-1"></i>{% if edit %}تحديث{% else %}حفظ{% endif %}
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

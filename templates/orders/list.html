@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+
+{% block title %}الطلبات - Restaurant System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-receipt me-2"></i>الطلبات</h2>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <select name="status" class="form-select">
+                    <option value="">كل الحالات</option>
+                    <option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>قيد الانتظار</option>
+                    <option value="preparing" {% if request.GET.status == 'preparing' %}selected{% endif %}>قيد التحضير</option>
+                    <option value="ready" {% if request.GET.status == 'ready' %}selected{% endif %}>جاهز</option>
+                    <option value="delivered" {% if request.GET.status == 'delivered' %}selected{% endif %}>تم التسليم</option>
+                    <option value="cancelled" {% if request.GET.status == 'cancelled' %}selected{% endif %}>ملغي</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select name="order_type" class="form-select">
+                    <option value="">كل الأنواع</option>
+                    <option value="dine_in" {% if request.GET.order_type == 'dine_in' %}selected{% endif %}>داخلي</option>
+                    <option value="takeaway" {% if request.GET.order_type == 'takeaway' %}selected{% endif %}>تيك أواي</option>
+                    <option value="delivery" {% if request.GET.order_type == 'delivery' %}selected{% endif %}>توصيل</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-secondary w-100"><i class="fas fa-filter me-1"></i>تصفية</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>رقم الطلب</th>
+                        <th>الفرع</th>
+                        <th>النوع</th>
+                        <th>المبلغ</th>
+                        <th>الحالة</th>
+                        <th>الكاشير</th>
+                        <th>التاريخ</th>
+                        <th>الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in orders %}
+                    <tr>
+                        <td>{{ order.order_number }}</td>
+                        <td>{{ order.branch.name }}</td>
+                        <td>
+                            {% if order.order_type == 'dine_in' %}داخلي
+                            {% elif order.order_type == 'takeaway' %}تيك أواي
+                            {% else %}توصيل{% endif %}
+                        </td>
+                        <td>{{ order.total_amount|floatformat:2 }} ج.م</td>
+                        <td>
+                            {% if order.status == 'pending' %}<span class="badge bg-warning">قيد الانتظار</span>
+                            {% elif order.status == 'preparing' %}<span class="badge bg-info">قيد التحضير</span>
+                            {% elif order.status == 'ready' %}<span class="badge bg-primary">جاهز</span>
+                            {% elif order.status == 'delivered' %}<span class="badge bg-success">تم التسليم</span>
+                            {% else %}<span class="badge bg-danger">ملغي</span>{% endif %}
+                        </td>
+                        <td>{{ order.cashier.username|default:"-" }}</td>
+                        <td>{{ order.created_at|date:"Y-m-d H:i" }}</td>
+                        <td>
+                            <a href="{% url 'orders:detail' order.pk %}" class="btn btn-sm btn-info"><i class="fas fa-eye"></i></a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="8" class="text-center">لا توجد طلبات</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% include 'includes/pagination.html' with page_obj=orders %}
+    </div>
+</div>
+{% endblock %}

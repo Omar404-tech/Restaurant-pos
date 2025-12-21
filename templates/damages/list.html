@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block title %}التوالف - Restaurant System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-trash-alt me-2"></i>التوالف</h2>
+    <a href="{% url 'damages:create' %}" class="btn btn-primary">
+        <i class="fas fa-plus me-1"></i>تسجيل تالف
+    </a>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <select name="status" class="form-select">
+                    <option value="">كل الحالات</option>
+                    <option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>قيد الانتظار</option>
+                    <option value="approved" {% if request.GET.status == 'approved' %}selected{% endif %}>موافق عليه</option>
+                    <option value="rejected" {% if request.GET.status == 'rejected' %}selected{% endif %}>مرفوض</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-secondary w-100"><i class="fas fa-filter me-1"></i>تصفية</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>رقم التالف</th>
+                        <th>الفرع</th>
+                        <th>الصنف</th>
+                        <th>الكمية</th>
+                        <th>السبب</th>
+                        <th>الحالة</th>
+                        <th>التاريخ</th>
+                        <th>الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for damage in damages %}
+                    <tr>
+                        <td>{{ damage.damage_number }}</td>
+                        <td>{{ damage.branch.name }}</td>
+                        <td>{{ damage.item.name }}</td>
+                        <td>{{ damage.quantity }}</td>
+                        <td>{{ damage.reason.name|default:"-" }}</td>
+                        <td>
+                            {% if damage.status == 'pending' %}<span class="badge bg-warning">قيد الانتظار</span>
+                            {% elif damage.status == 'approved' %}<span class="badge bg-success">موافق عليه</span>
+                            {% else %}<span class="badge bg-danger">مرفوض</span>{% endif %}
+                        </td>
+                        <td>{{ damage.created_at|date:"Y-m-d" }}</td>
+                        <td>
+                            <a href="{% url 'damages:detail' damage.pk %}" class="btn btn-sm btn-info"><i class="fas fa-eye"></i></a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="8" class="text-center">لا توجد توالف</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% include 'includes/pagination.html' with page_obj=damages %}
+    </div>
+</div>
+{% endblock %}

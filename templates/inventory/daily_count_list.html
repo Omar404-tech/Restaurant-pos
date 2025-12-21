@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block title %}الجرد اليومي - Restaurant System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-clipboard-list me-2"></i>الجرد اليومي</h2>
+    <a href="{% url 'inventory:daily_count_create' %}" class="btn btn-primary">
+        <i class="fas fa-plus me-1"></i>جرد جديد
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>الفرع</th>
+                        <th>التاريخ</th>
+                        <th>النوع</th>
+                        <th>بواسطة</th>
+                        <th>الحالة</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for count in counts %}
+                    <tr>
+                        <td>{{ count.branch.name }}</td>
+                        <td>{{ count.count_date|date:"Y-m-d" }}</td>
+                        <td>{% if count.count_type == 'morning' %}صباحي{% else %}مسائي{% endif %}</td>
+                        <td>{{ count.counted_by.username }}</td>
+                        <td>
+                            {% if count.status == 'completed' %}
+                            <span class="badge bg-success">مكتمل</span>
+                            {% else %}
+                            <span class="badge bg-warning">قيد التنفيذ</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-center">لا يوجد جرد</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% include 'includes/pagination.html' with page_obj=counts %}
+    </div>
+</div>
+{% endblock %}

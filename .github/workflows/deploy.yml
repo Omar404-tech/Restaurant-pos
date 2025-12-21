@@ -34,7 +34,7 @@ jobs:
 
       - name: Build
         working-directory: restaurant-react
-        run: npm run build
+        run: npx vite build
 
       - name: Copy 404.html for SPA routing
         working-directory: restaurant-react

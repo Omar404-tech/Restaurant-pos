@@ -1,8 +1,8 @@
-import { useState, useEffect, FormEvent, useRef } from 'react'
+import { useState, useEffect, FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase, fixEncodingInData } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
-import { Save, ArrowRight, AlertCircle, Plus, Trash2, Barcode, Search } from 'lucide-react'
+import { Save, ArrowRight, AlertCircle, Plus, Trash2, Search, X, Barcode } from 'lucide-react'
 
 interface Branch {
   id: string
@@ -42,9 +42,7 @@ export default function BranchReturnForm() {
   const [returnItems, setReturnItems] = useState<ReturnItem[]>([
     { item_id: '', quantity: 1, reason: '', notes: '' },
   ])
-  const [barcodeInput, setBarcodeInput] = useState('')
-  const [barcodeError, setBarcodeError] = useState('')
-  const barcodeInputRef = useRef<HTMLInputElement>(null)
+  const [searchTerm, setSearchTerm] = useState<{ [key: number]: string }>({})
 
   // Get user role
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -93,55 +91,14 @@ export default function BranchReturnForm() {
     setReturnItems([...returnItems, { item_id: '', quantity: 1, reason: '', notes: '' }])
   }
 
-  // Barcode search function
-  const handleBarcodeSearch = () => {
-    if (!barcodeInput.trim()) return
-    setBarcodeError('')
-
-    // Search by barcode or code
-    const item = items.find(i => 
-      (i as Item & { barcode?: string }).barcode === barcodeInput.trim() || 
-      i.code === barcodeInput.trim()
+  const filteredItems = (index: number) => {
+    const term = searchTerm[index]?.toLowerCase() || ''
+    if (!term) return items
+    return items.filter(item => 
+      item.name_ar.toLowerCase().includes(term) ||
+      item.code.toLowerCase().includes(term) ||
+      ((item as Item & { barcode?: string }).barcode && (item as Item & { barcode?: string }).barcode!.toLowerCase().includes(term))
     )
-
-    if (item) {
-      // Check if item already exists in list
-      const existingIndex = returnItems.findIndex(ri => ri.item_id === item.id)
-      if (existingIndex >= 0) {
-        // Increment quantity
-        const updated = [...returnItems]
-        updated[existingIndex].quantity += 1
-        setReturnItems(updated)
-      } else {
-        // Add new item
-        const newItem: ReturnItem = {
-          item_id: item.id,
-          quantity: 1,
-          reason: '',
-          notes: ''
-        }
-        // Replace empty item or add new
-        const emptyIndex = returnItems.findIndex(ri => !ri.item_id)
-        if (emptyIndex >= 0) {
-          const updated = [...returnItems]
-          updated[emptyIndex] = newItem
-          setReturnItems(updated)
-        } else {
-          setReturnItems([...returnItems, newItem])
-        }
-      }
-      setBarcodeInput('')
-      barcodeInputRef.current?.focus()
-    } else {
-      setBarcodeError(`لم يتم العثور على صنف بالباركود: ${barcodeInput}`)
-    }
-  }
-
-  const handleBarcodeKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      handleBarcodeSearch()
-    }
   }
 
   const removeItem = (index: number) => {
@@ -365,109 +322,168 @@ export default function BranchReturnForm() {
             </button>
           </div>
 
-          {/* Barcode Scanner Input */}
-          <div className="mb-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
-            <label className="flex items-center gap-2 text-sm font-medium text-purple-800 mb-2">
-              <Barcode className="w-4 h-4" />
-              إضافة صنف بالباركود
-            </label>
-            <div className="flex gap-2">
-              <input
-                ref={barcodeInputRef}
-                type="text"
-                value={barcodeInput}
-                onChange={(e) => setBarcodeInput(e.target.value)}
-                onKeyPress={handleBarcodeKeyPress}
-                placeholder="امسح الباركود أو أدخل كود الصنف"
-                className="flex-1 px-4 py-2 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                dir="ltr"
-              />
-              <button
-                type="button"
-                onClick={handleBarcodeSearch}
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-                title="بحث بالباركود"
-                aria-label="بحث بالباركود"
-              >
-                <Search className="w-5 h-5" />
-              </button>
-            </div>
-            {barcodeError && <p className="text-red-600 text-sm mt-2">{barcodeError}</p>}
-            <p className="text-xs text-purple-600 mt-1">استخدم قارئ الباركود أو أدخل الكود يدوياً ثم اضغط Enter</p>
-          </div>
-
           <div className="space-y-4">
-            {returnItems.map((item, index) => (
-              <div key={index} className="flex gap-4 items-start p-4 bg-gray-50 rounded-lg">
-                <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">الصنف</label>
-                    <select
-                      value={item.item_id}
-                      onChange={(e) => updateItem(index, 'item_id', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
-                      aria-label="الصنف"
-                    >
-                      <option value="">اختر</option>
-                      {items.map((i) => (
-                        <option key={i.id} value={i.id}>
-                          {i.name_ar}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">الكمية</label>
-                    <input
-                      type="number"
-                      min="1"
-                      step="1"
-                      value={item.quantity}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value, 10)
-                        updateItem(index, 'quantity', isNaN(val) ? 1 : val)
-                      }}
-                      onFocus={(e) => e.target.select()}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
-                      dir="ltr"
-                      aria-label="الكمية"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">السبب</label>
-                    <input
-                      type="text"
-                      value={item.reason}
-                      onChange={(e) => updateItem(index, 'reason', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
-                      placeholder="السبب"
-                      aria-label="السبب"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">ملاحظات</label>
-                    <input
-                      type="text"
-                      value={item.notes}
-                      onChange={(e) => updateItem(index, 'notes', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
-                      placeholder="ملاحظات"
-                      aria-label="ملاحظات"
-                    />
+            {returnItems.map((item, index) => {
+              const selectedItem = items.find(i => i.id === item.item_id)
+              const searchResults = filteredItems(index)
+              const showResults = searchTerm[index] && searchResults.length > 0
+              
+              return (
+                <div key={index} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="space-y-3">
+                    {/* Search Input */}
+                    <div className="relative">
+                      <div className="flex items-center gap-2 bg-purple-50 rounded-lg p-2">
+                        <div className="bg-purple-600 text-white p-2 rounded-lg">
+                          <Search className="w-5 h-5" />
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="امسح الباركود أو أدخل الكود أو اسم الصنف"
+                          value={searchTerm[index] || ''}
+                          onChange={(e) => {
+                            setSearchTerm({ ...searchTerm, [index]: e.target.value })
+                            const results = items.filter(i => 
+                              i.name_ar.toLowerCase().includes(e.target.value.toLowerCase()) ||
+                              i.code.toLowerCase().includes(e.target.value.toLowerCase()) ||
+                              ((i as Item & { barcode?: string }).barcode && (i as Item & { barcode?: string }).barcode!.toLowerCase().includes(e.target.value.toLowerCase()))
+                            )
+                            if (results.length === 1 && e.target.value.length > 2) {
+                              updateItem(index, 'item_id', results[0].id)
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && searchResults.length > 0) {
+                              updateItem(index, 'item_id', searchResults[0].id)
+                              setSearchTerm({ ...searchTerm, [index]: '' })
+                            }
+                          }}
+                          className="flex-1 px-3 py-2 border-0 bg-transparent focus:outline-none text-gray-700 placeholder-gray-500"
+                        />
+                      </div>
+                      
+                      {/* Search Results */}
+                      {showResults && (
+                        <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto mt-1">
+                          {searchResults.map(i => (
+                            <button
+                              key={i.id}
+                              type="button"
+                              onClick={() => {
+                                updateItem(index, 'item_id', i.id)
+                                setSearchTerm({ ...searchTerm, [index]: '' })
+                              }}
+                              className="w-full text-right px-4 py-3 hover:bg-purple-50 border-b border-gray-100 last:border-0"
+                            >
+                              <div className="font-medium text-gray-900">{i.name_ar}</div>
+                              <div className="text-sm text-gray-500 flex items-center gap-2 mt-1">
+                                <span>الكود: {i.code}</span>
+                                {(i as Item & { barcode?: string }).barcode && (
+                                  <>
+                                    <span>•</span>
+                                    <span>الباركود: {(i as Item & { barcode?: string }).barcode}</span>
+                                  </>
+                                )}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* Selected Item */}
+                      {selectedItem && (
+                        <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium text-green-900">{selectedItem.name_ar}</p>
+                              <p className="text-sm text-green-700">
+                                الكود: {selectedItem.code}
+                                {(selectedItem as Item & { barcode?: string }).barcode && 
+                                  ` | الباركود: ${(selectedItem as Item & { barcode?: string }).barcode}`}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                updateItem(index, 'item_id', '')
+                                setSearchTerm({ ...searchTerm, [index]: '' })
+                              }}
+                              className="text-red-500 hover:text-red-700"
+                              title="إلغاء الاختيار"
+                            >
+                              <X className="w-5 h-5" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {!selectedItem && !searchTerm[index] && (
+                        <p className="text-sm text-purple-600 mt-2 flex items-center gap-2">
+                          <Barcode className="w-4 h-4" />
+                          استخدم قارئ الباركود أو أدخل الكود يدوياً ثم اضغط Enter
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Quantity, Reason, Notes */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">الكمية</label>
+                        <input
+                          type="number"
+                          min="0.001"
+                          step="0.001"
+                          value={item.quantity}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value)
+                            updateItem(index, 'quantity', isNaN(val) ? 0.001 : val)
+                          }}
+                          onFocus={(e) => e.target.select()}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500"
+                          placeholder="مثال: 19.200"
+                          dir="ltr"
+                          aria-label="الكمية"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">السبب</label>
+                        <input
+                          type="text"
+                          value={item.reason}
+                          onChange={(e) => updateItem(index, 'reason', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500"
+                          placeholder="السبب"
+                          aria-label="السبب"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">ملاحظات</label>
+                        <input
+                          type="text"
+                          value={item.notes}
+                          onChange={(e) => updateItem(index, 'notes', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500"
+                          placeholder="ملاحظات"
+                          aria-label="ملاحظات"
+                        />
+                      </div>
+                      <div className="flex items-end">
+                        {returnItems.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeItem(index)}
+                            className="w-full p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                            title="حذف"
+                          >
+                            <Trash2 className="w-4 h-4 mx-auto" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
-                {returnItems.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeItem(index)}
-                    className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
-                    title="حذف"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
 

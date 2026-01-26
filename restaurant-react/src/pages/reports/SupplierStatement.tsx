@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { suppliersService } from '../../services/suppliers.service';
 import { formatDate, formatCurrency } from '../../lib/utils';
@@ -62,10 +62,25 @@ export default function SupplierStatement() {
       .eq('supplier_id', selectedSupplier)
       .lt('created_at', startDate);
     
-    const { data: prevPayments } = await supabase
+    // Get purchase orders before start date
+    const { data: prevOrders } = await supabase
+      .from('purchase_orders')
+      .select('total_amount')
+      .eq('supplier_id', selectedSupplier)
+      .lt('order_date', startDate);
+    
+    // Get supplier payments before start date
+    const { data: prevSupplierPayments } = await supabase
       .from('supplier_payments')
       .select('amount')
       .eq('supplier_id', selectedSupplier)
+      .lt('payment_date', startDate);
+
+    // Get purchase order payments before start date
+    const { data: prevPOPayments } = await supabase
+      .from('purchase_order_payments')
+      .select('amount, order:purchase_orders!inner(supplier_id)')
+      .eq('order.supplier_id', selectedSupplier)
       .lt('payment_date', startDate);
 
     const { data: prevReturns } = await supabase
@@ -75,9 +90,11 @@ export default function SupplierStatement() {
       .lt('created_at', startDate);
 
     const prevSuppliesTotal = prevSupplies?.reduce((sum, s) => sum + (Number(s.total_amount) || 0), 0) || 0;
-    const prevPaymentsTotal = prevPayments?.reduce((sum, p) => sum + (Number(p.amount) || 0), 0) || 0;
+    const prevOrdersTotal = prevOrders?.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0) || 0;
+    const prevSupplierPaymentsTotal = prevSupplierPayments?.reduce((sum, p) => sum + (Number(p.amount) || 0), 0) || 0;
+    const prevPOPaymentsTotal = prevPOPayments?.reduce((sum, p) => sum + (Number(p.amount) || 0), 0) || 0;
     const prevReturnsTotal = prevReturns?.reduce((sum, r) => sum + (Number(r.total_amount) || 0), 0) || 0;
-    const openingBalance = prevSuppliesTotal - prevPaymentsTotal - prevReturnsTotal;
+    const openingBalance = prevSuppliesTotal + prevOrdersTotal - prevSupplierPaymentsTotal - prevPOPaymentsTotal - prevReturnsTotal;
 
     // Get supplies in period
     const { data: supplies } = await supabase
@@ -88,11 +105,29 @@ export default function SupplierStatement() {
       .lte('created_at', endDate + 'T23:59:59')
       .order('created_at');
 
-    // Get payments in period
-    const { data: payments } = await supabase
+    // Get purchase orders in period
+    const { data: orders } = await supabase
+      .from('purchase_orders')
+      .select('id, order_number, order_date, total_amount')
+      .eq('supplier_id', selectedSupplier)
+      .gte('order_date', startDate)
+      .lte('order_date', endDate)
+      .order('order_date');
+
+    // Get supplier payments in period
+    const { data: supplierPayments } = await supabase
       .from('supplier_payments')
       .select('id, payment_number, payment_date, amount, payment_method')
       .eq('supplier_id', selectedSupplier)
+      .gte('payment_date', startDate)
+      .lte('payment_date', endDate)
+      .order('payment_date');
+
+    // Get purchase order payments in period
+    const { data: poPayments } = await supabase
+      .from('purchase_order_payments')
+      .select('id, payment_number, payment_date, amount, payment_method, order:purchase_orders!inner(supplier_id, order_number)')
+      .eq('order.supplier_id', selectedSupplier)
       .gte('payment_date', startDate)
       .lte('payment_date', endDate)
       .order('payment_date');
@@ -125,15 +160,45 @@ export default function SupplierStatement() {
       });
     });
 
-    // Add payments
-    payments?.forEach(p => {
+    // Add purchase orders
+    orders?.forEach(o => {
+      runningBalance += Number(o.total_amount) || 0;
+      transactions.push({
+        id: o.id,
+        date: o.order_date,
+        type: 'supply',
+        reference: o.order_number,
+        description: 'أمر شراء',
+        debit: Number(o.total_amount) || 0,
+        credit: 0,
+        balance: runningBalance,
+      });
+    });
+
+    // Add supplier payments
+    supplierPayments?.forEach(p => {
       runningBalance -= Number(p.amount) || 0;
       transactions.push({
         id: p.id,
         date: p.payment_date,
         type: 'payment',
         reference: p.payment_number,
-        description: `دفعة - ${p.payment_method || 'نقدي'}`,
+        description: `دفعة توريد - ${p.payment_method || 'نقدي'}`,
+        debit: 0,
+        credit: Number(p.amount) || 0,
+        balance: runningBalance,
+      });
+    });
+
+    // Add purchase order payments
+    poPayments?.forEach(p => {
+      runningBalance -= Number(p.amount) || 0;
+      transactions.push({
+        id: p.id,
+        date: p.payment_date,
+        type: 'payment',
+        reference: p.payment_number,
+        description: `دفعة أمر شراء ${(p as any).order?.order_number || ''} - ${p.payment_method || 'نقدي'}`,
         debit: 0,
         credit: Number(p.amount) || 0,
         balance: runningBalance,
@@ -181,17 +246,36 @@ export default function SupplierStatement() {
   };
 
   const handlePrint = () => {
+    // Hide headers and footers by using CSS
+    const style = document.createElement('style');
+    style.innerHTML = `
+      @media print {
+        @page { margin: 0; }
+        body { margin: 1cm; }
+      }
+    `;
+    document.head.appendChild(style);
+    
     window.print();
+    
+    // Remove the style after printing
+    setTimeout(() => {
+      document.head.removeChild(style);
+    }, 1000);
   };
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between print:hidden">
         <div className="flex items-center gap-4">
-          <Link to="/reports" className="p-2 hover:bg-gray-100 rounded-lg">
+          <button 
+            onClick={() => window.history.back()} 
+            className="p-2 hover:bg-gray-100 rounded-lg"
+            type="button"
+          >
             <ArrowRight className="w-5 h-5" />
-          </Link>
+          </button>
           <div>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
               <FileText className="w-6 h-6 text-green-600" />
@@ -204,13 +288,21 @@ export default function SupplierStatement() {
           <button
             type="button"
             onClick={handlePrint}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 print:hidden"
+            className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
           >
             <Printer className="w-4 h-4" />
             طباعة
           </button>
         )}
       </div>
+
+      {/* Print Header - Only visible when printing */}
+      {data && (
+        <div className="hidden print:block text-center mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">كشف حساب مورد</h1>
+          <p className="text-gray-600">نظام إدارة المطعم</p>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4 print:hidden">
@@ -264,9 +356,9 @@ export default function SupplierStatement() {
 
       {/* Statement */}
       {data && (
-        <>
+        <div className="print:space-y-4">
           {/* Supplier Info */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 print:shadow-none print:border print:rounded-none">
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h2 className="text-xl font-bold text-gray-900">{data.supplier?.name_ar}</h2>
@@ -280,33 +372,33 @@ export default function SupplierStatement() {
             </div>
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-              <div className="bg-gray-50 rounded-lg p-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 print:gap-2">
+              <div className="bg-gray-50 rounded-lg p-4 print:border print:border-gray-300 print:rounded-none">
                 <div className="flex items-center gap-2 text-gray-600 mb-1">
-                  <DollarSign className="w-4 h-4" />
+                  <DollarSign className="w-4 h-4 print:hidden" />
                   <span className="text-sm">رصيد أول المدة</span>
                 </div>
                 <p className={`text-xl font-bold ${data.openingBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
                   {formatCurrency(data.openingBalance)}
                 </p>
               </div>
-              <div className="bg-red-50 rounded-lg p-4">
+              <div className="bg-red-50 rounded-lg p-4 print:border print:border-gray-300 print:rounded-none">
                 <div className="flex items-center gap-2 text-red-600 mb-1">
-                  <TrendingUp className="w-4 h-4" />
+                  <TrendingUp className="w-4 h-4 print:hidden" />
                   <span className="text-sm">إجمالي المشتريات</span>
                 </div>
                 <p className="text-xl font-bold text-red-600">{formatCurrency(data.totalDebit)}</p>
               </div>
-              <div className="bg-green-50 rounded-lg p-4">
+              <div className="bg-green-50 rounded-lg p-4 print:border print:border-gray-300 print:rounded-none">
                 <div className="flex items-center gap-2 text-green-600 mb-1">
-                  <TrendingDown className="w-4 h-4" />
+                  <TrendingDown className="w-4 h-4 print:hidden" />
                   <span className="text-sm">إجمالي المدفوعات</span>
                 </div>
                 <p className="text-xl font-bold text-green-600">{formatCurrency(data.totalCredit)}</p>
               </div>
-              <div className={`rounded-lg p-4 ${data.closingBalance > 0 ? 'bg-red-100' : 'bg-green-100'}`}>
+              <div className={`rounded-lg p-4 print:border print:border-gray-300 print:rounded-none ${data.closingBalance > 0 ? 'bg-red-100' : 'bg-green-100'}`}>
                 <div className="flex items-center gap-2 mb-1">
-                  <DollarSign className="w-4 h-4" />
+                  <DollarSign className="w-4 h-4 print:hidden" />
                   <span className="text-sm">المبلغ المستحق</span>
                 </div>
                 <p className={`text-xl font-bold ${data.closingBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
@@ -317,37 +409,37 @@ export default function SupplierStatement() {
           </div>
 
           {/* Transactions Table */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden print:shadow-none print:border print:rounded-none">
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-green-600 text-white">
+              <table className="w-full print:border-collapse">
+                <thead className="bg-green-600 text-white print:bg-gray-200 print:text-black">
                   <tr>
-                    <th className="px-4 py-3 text-right text-sm font-medium">التاريخ</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium">المرجع</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium">البيان</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium">مدين (له)</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium">دائن (منه)</th>
-                    <th className="px-4 py-3 text-right text-sm font-medium">الرصيد</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium print:border print:border-gray-300">التاريخ</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium print:border print:border-gray-300">المرجع</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium print:border print:border-gray-300">البيان</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium print:border print:border-gray-300">مدين (له)</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium print:border print:border-gray-300">دائن (منه)</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium print:border print:border-gray-300">الرصيد</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {/* Opening Balance Row */}
                   <tr className="bg-gray-100 font-medium">
-                    <td className="px-4 py-3">{formatDate(startDate)}</td>
-                    <td className="px-4 py-3">-</td>
-                    <td className="px-4 py-3">رصيد أول المدة</td>
-                    <td className="px-4 py-3">-</td>
-                    <td className="px-4 py-3">-</td>
-                    <td className={`px-4 py-3 ${data.openingBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    <td className="px-4 py-3 print:border print:border-gray-300">{formatDate(startDate)}</td>
+                    <td className="px-4 py-3 print:border print:border-gray-300">-</td>
+                    <td className="px-4 py-3 print:border print:border-gray-300">رصيد أول المدة</td>
+                    <td className="px-4 py-3 print:border print:border-gray-300">-</td>
+                    <td className="px-4 py-3 print:border print:border-gray-300">-</td>
+                    <td className={`px-4 py-3 print:border print:border-gray-300 ${data.openingBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
                       {formatCurrency(data.openingBalance)}
                     </td>
                   </tr>
                   {/* Transactions */}
                   {data.transactions.map((t, i) => (
                     <tr key={t.id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                      <td className="px-4 py-3">{formatDate(t.date)}</td>
-                      <td className="px-4 py-3 font-mono text-sm">{t.reference}</td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 print:border print:border-gray-300">{formatDate(t.date)}</td>
+                      <td className="px-4 py-3 font-mono text-sm print:border print:border-gray-300">{t.reference}</td>
+                      <td className="px-4 py-3 print:border print:border-gray-300">
                         <span className={`inline-flex items-center gap-1 ${
                           t.type === 'supply' ? 'text-blue-600' : 
                           t.type === 'payment' ? 'text-green-600' : 'text-orange-600'
@@ -355,19 +447,19 @@ export default function SupplierStatement() {
                           {t.description}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-red-600">{t.debit > 0 ? formatCurrency(t.debit) : '-'}</td>
-                      <td className="px-4 py-3 text-green-600">{t.credit > 0 ? formatCurrency(t.credit) : '-'}</td>
-                      <td className={`px-4 py-3 font-medium ${t.balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      <td className="px-4 py-3 text-red-600 print:border print:border-gray-300">{t.debit > 0 ? formatCurrency(t.debit) : '-'}</td>
+                      <td className="px-4 py-3 text-green-600 print:border print:border-gray-300">{t.credit > 0 ? formatCurrency(t.credit) : '-'}</td>
+                      <td className={`px-4 py-3 font-medium print:border print:border-gray-300 ${t.balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
                         {formatCurrency(t.balance)}
                       </td>
                     </tr>
                   ))}
                   {/* Closing Balance Row */}
                   <tr className="bg-gray-200 font-bold">
-                    <td className="px-4 py-3" colSpan={3}>رصيد آخر المدة</td>
-                    <td className="px-4 py-3 text-red-600">{formatCurrency(data.totalDebit)}</td>
-                    <td className="px-4 py-3 text-green-600">{formatCurrency(data.totalCredit)}</td>
-                    <td className={`px-4 py-3 ${data.closingBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    <td className="px-4 py-3 print:border print:border-gray-300" colSpan={3}>رصيد آخر المدة</td>
+                    <td className="px-4 py-3 text-red-600 print:border print:border-gray-300">{formatCurrency(data.totalDebit)}</td>
+                    <td className="px-4 py-3 text-green-600 print:border print:border-gray-300">{formatCurrency(data.totalCredit)}</td>
+                    <td className={`px-4 py-3 print:border print:border-gray-300 ${data.closingBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
                       {formatCurrency(data.closingBalance)}
                     </td>
                   </tr>
@@ -375,10 +467,10 @@ export default function SupplierStatement() {
               </table>
             </div>
             {data.transactions.length === 0 && (
-              <div className="text-center py-12 text-gray-500">لا توجد حركات في هذه الفترة</div>
+              <div className="text-center py-12 text-gray-500 print:py-6">لا توجد حركات في هذه الفترة</div>
             )}
           </div>
-        </>
+        </div>
       )}
 
       {!data && !loading && (

@@ -95,10 +95,11 @@ export default function POSKitchen() {
     if (!printWindow) return
 
     const items = order.items?.map(item => {
-      const menuItem = (item as unknown as { menu_item?: { name_ar: string } }).menu_item
+      const itemData = item as unknown as { menu_item?: { name_ar: string }, item?: { name_ar: string } }
+      const itemName = itemData.item?.name_ar || itemData.menu_item?.name_ar || 'صنف'
       return `
         <tr>
-          <td style="padding: 8px; border-bottom: 1px solid #eee;">${menuItem?.name_ar || 'صنف'}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #eee;">${itemName}</td>
           <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: center;">${item.quantity}</td>
           ${item.notes ? `<td style="padding: 8px; border-bottom: 1px solid #eee; color: #f97316; font-size: 12px;">${item.notes}</td>` : '<td></td>'}
         </tr>
@@ -229,21 +230,25 @@ export default function POSKitchen() {
               {/* Order Items */}
               <div className="p-4 bg-white space-y-2">
                 {order.items && order.items.length > 0 ? (
-                  order.items.map(item => (
-                    <div key={item.id} className="flex items-center gap-3">
-                      <span className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-sm">
-                        {item.quantity}
-                      </span>
-                      <div className="flex-1">
-                        <p className="font-medium text-gray-900">
-                          {(item as unknown as { menu_item?: { name_ar: string } }).menu_item?.name_ar || 'صنف غير معروف'}
-                        </p>
-                        {item.notes && (
-                          <p className="text-sm text-orange-600">{item.notes}</p>
-                        )}
+                  order.items.map(item => {
+                    const itemData = item as unknown as { menu_item?: { name_ar: string }, item?: { name_ar: string } }
+                    const itemName = itemData.item?.name_ar || itemData.menu_item?.name_ar || 'صنف غير معروف'
+                    return (
+                      <div key={item.id} className="flex items-center gap-3">
+                        <span className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-sm">
+                          {item.quantity}
+                        </span>
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">
+                            {itemName}
+                          </p>
+                          {item.notes && (
+                            <p className="text-sm text-orange-600">{item.notes}</p>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    )
+                  })
                 ) : (
                   <p className="text-gray-500 text-sm text-center py-2">لا توجد أصناف</p>
                 )}

@@ -6,6 +6,8 @@ interface BarcodeScannerProps {
   placeholder?: string
   className?: string
   disabled?: boolean
+  value?: string
+  onChange?: (value: string) => void
 }
 
 /**
@@ -18,9 +20,14 @@ export default function BarcodeScanner({
   onScan, 
   placeholder = 'امسح الباركود أو أدخله يدوياً',
   className = '',
-  disabled = false
+  disabled = false,
+  value: externalValue,
+  onChange: externalOnChange
 }: BarcodeScannerProps) {
-  const [barcode, setBarcode] = useState('')
+  const [internalBarcode, setInternalBarcode] = useState('')
+  const barcode = externalValue !== undefined ? externalValue : internalBarcode
+  const setBarcode = externalOnChange || setInternalBarcode
+  
   const [isScanning, setIsScanning] = useState(false)
   const [lastKeyTime, setLastKeyTime] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)

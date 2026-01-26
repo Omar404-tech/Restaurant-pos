@@ -44,14 +44,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false)
   }, [])
 
-  // Sign in using database users table
+  // Sign in using Supabase Auth + database users table (with fallback to custom auth)
   const signIn = async (email: string, password: string) => {
     try {
-      // Query users table by email
+      // Try custom database authentication first (for existing users with password = "1234")
+      if (password === '1234') {
+        const { data: dbUsers, error: dbError } = await supabase
+          .from('users')
+          .select('*, branch:branches(*), role:roles(*)')
+          .eq('email', email)
+          .eq('status', 'active')
+
+        if (!dbError && dbUsers && dbUsers.length > 0) {
+          const dbUser = dbUsers[0]
+
+          // Fix Arabic encoding issues from database
+          if (dbUser.full_name_ar) {
+            dbUser.full_name_ar = fixArabicEncoding(dbUser.full_name_ar)
+          }
+          if (dbUser.role && typeof dbUser.role === 'object' && dbUser.role.name_ar) {
+            dbUser.role.name_ar = fixArabicEncoding(dbUser.role.name_ar)
+          }
+          if (dbUser.branch && typeof dbUser.branch === 'object' && dbUser.branch.name_ar) {
+            dbUser.branch.name_ar = fixArabicEncoding(dbUser.branch.name_ar)
+          }
+
+          // Set user and persist to localStorage
+          setUser(dbUser as User)
+          localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(dbUser))
+
+          return { error: null }
+        }
+      }
+
+      // If custom auth fails, try Supabase Auth (for new users)
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      })
+
+      if (authError) {
+        return { error: new Error('البريد الإلكتروني أو كلمة المرور غير صحيحة') }
+      }
+
+      if (!authData.user) {
+        return { error: new Error('فشل تسجيل الدخول') }
+      }
+
+      // Now query users table by auth user id
       const { data: users, error } = await supabase
         .from('users')
         .select('*, branch:branches(*), role:roles(*)')
-        .eq('email', email)
+        .eq('id', authData.user.id)
         .eq('status', 'active')
 
       if (error) {
@@ -59,16 +103,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (!users || users.length === 0) {
-        return { error: new Error('البريد الإلكتروني غير مسجل') }
+        return { error: new Error('المستخدم غير مسجل') }
       }
 
       const dbUser = users[0]
-
-      // For demo: accept any password or check against password_hash
-      // In production, you should use proper password hashing
-      if (password.length < 4) {
-        return { error: new Error('كلمة المرور غير صحيحة') }
-      }
 
       // Fix Arabic encoding issues from database
       if (dbUser.full_name_ar) {
@@ -92,6 +130,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const signOut = async () => {
+    // Sign out from Supabase Auth
+    await supabase.auth.signOut()
     setUser(null)
     localStorage.removeItem(USER_STORAGE_KEY)
   }

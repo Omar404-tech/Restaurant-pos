@@ -43,6 +43,52 @@ export const recipeService = {
     return { data: fixEncodingInData(data) as Item[], error }
   },
 
+  // Get all recipes with calculated cost from ingredients
+  async getAllRecipesWithCost() {
+    const { data: recipes, error } = await supabase
+      .from('items')
+      .select('*, category:categories(name_ar), unit:units(id, name_ar, code)')
+      .eq('is_recipe', true)
+      .order('name_ar')
+
+    if (error || !recipes) return { data: [], error }
+
+    // Calculate cost for each recipe
+    const recipesWithCost = await Promise.all(
+      recipes.map(async (recipe) => {
+        const cost = await this.calculateRecipeCost(recipe.id)
+        return {
+          ...recipe,
+          calculated_cost: cost
+        }
+      })
+    )
+
+    return { data: fixEncodingInData(recipesWithCost) as (Item & { calculated_cost: number })[], error: null }
+  },
+
+  // Calculate recipe cost from ingredients
+  async calculateRecipeCost(recipeItemId: string): Promise<number> {
+    const { data: ingredients } = await supabase
+      .from('recipe_ingredients')
+      .select(`
+        quantity,
+        ingredient:items!ingredient_item_id(purchase_price)
+      `)
+      .eq('recipe_item_id', recipeItemId)
+
+    if (!ingredients || ingredients.length === 0) return 0
+
+    let totalCost = 0
+    for (const ing of ingredients) {
+      const ingredient = Array.isArray(ing.ingredient) ? ing.ingredient[0] : ing.ingredient
+      const price = ingredient?.purchase_price || 0
+      totalCost += ing.quantity * price
+    }
+
+    return totalCost
+  },
+
   // Get recipe with ingredients
   async getRecipeWithIngredients(recipeItemId: string) {
     const [recipeRes, ingredientsRes] = await Promise.all([
@@ -62,7 +108,7 @@ export const recipeService = {
           notes,
           created_at,
           updated_at,
-          ingredient:items!ingredient_item_id(id, code, name_ar, unit_id),
+          ingredient:items!ingredient_item_id(id, code, name_ar, unit_id, purchase_price),
           unit:units(id, name_ar, code)
         `)
         .eq('recipe_item_id', recipeItemId)
@@ -95,7 +141,7 @@ export const recipeService = {
         notes,
         created_at,
         updated_at,
-        ingredient:items!ingredient_item_id(id, code, name_ar, unit_id),
+        ingredient:items!ingredient_item_id(id, code, name_ar, unit_id, purchase_price),
         unit:units(id, name_ar, code)
       `)
       .eq('recipe_item_id', recipeItemId)
@@ -314,16 +360,23 @@ export const recipeService = {
     const { data: ingredients } = await this.getRecipeIngredients(recipeItemId)
     if (!ingredients?.length) return { available: false, details: [] }
 
+    console.log('🔍 Checking availability for recipe:', recipeItemId, 'in branch:', branchId)
+    console.log('📦 Recipe ingredients:', ingredients)
+
     const details: { name: string; required: number; available: number; sufficient: boolean }[] = []
     let allAvailable = true
 
     for (const ing of ingredients) {
-      const { data: inv } = await supabase
+      console.log('🔎 Checking ingredient:', ing.ingredient_item_id, (ing.ingredient as Item)?.name_ar)
+      
+      const { data: inv, error } = await supabase
         .from('inventory')
         .select('quantity')
         .eq('branch_id', branchId)
         .eq('item_id', ing.ingredient_item_id)
         .single()
+
+      console.log('📊 Inventory query result:', { data: inv, error, item_id: ing.ingredient_item_id })
 
       const available = inv?.quantity || 0
       const required = ing.quantity * quantity
@@ -337,8 +390,118 @@ export const recipeService = {
         available,
         sufficient
       })
+
+      console.log(`✅ ${(ing.ingredient as Item)?.name_ar}: Required=${required}, Available=${available}, Sufficient=${sufficient}`)
     }
 
+    console.log('🎯 Final result:', { available: allAvailable, details })
     return { available: allAvailable, details }
+  },
+
+  // Search items by code or name (for import)
+  async searchItems(searchTerm: string) {
+    const { data, error } = await supabase
+      .from('items')
+      .select('id, code, name_ar, unit_id')
+      .or(`code.ilike.%${searchTerm}%,name_ar.ilike.%${searchTerm}%`)
+      .eq('status', 'active')
+      .limit(10)
+
+    return { data: fixEncodingInData(data) as Item[], error }
+  },
+
+  // Create recipe with ingredients (simplified for import)
+  async create(data: { name_ar: string; name_en: string; category_id: string | null; ingredients: { item_id: string; quantity: number }[]; notes?: string }) {
+    // Generate code
+    const code = `RCP-${Date.now()}`
+
+    // Get default unit (piece) - try multiple codes
+    let unitId = null
+    const { data: unit } = await supabase
+      .from('units')
+      .select('id')
+      .or('code.eq.PIECE,code.eq.PCS,code.eq.UNIT')
+      .limit(1)
+      .single()
+
+    if (unit) {
+      unitId = unit.id
+    } else {
+      // If no unit found, get the first available unit
+      const { data: firstUnit } = await supabase
+        .from('units')
+        .select('id')
+        .limit(1)
+        .single()
+      
+      unitId = firstUnit?.id
+    }
+
+    if (!unitId) {
+      return { error: new Error('لا توجد وحدات قياس في النظام. يرجى إضافة وحدة قياس أولاً.') }
+    }
+
+    // Get or create recipe category
+    let categoryId = data.category_id
+    if (!categoryId) {
+      const { data: category } = await supabase
+        .from('categories')
+        .select('id')
+        .or('code.eq.CAT-RECIPE,code.eq.RECIPE')
+        .limit(1)
+        .single()
+      
+      categoryId = category?.id
+      
+      // If no recipe category, use first available category
+      if (!categoryId) {
+        const { data: firstCat } = await supabase
+          .from('categories')
+          .select('id')
+          .limit(1)
+          .single()
+        
+        categoryId = firstCat?.id
+      }
+    }
+
+    // Create item
+    const { data: item, error: itemError } = await supabase
+      .from('items')
+      .insert({
+        code,
+        name: data.name_en,
+        name_ar: data.name_ar,
+        unit_id: unitId,
+        category_id: categoryId,
+        is_recipe: true,
+        status: 'active',
+        description: data.notes
+      })
+      .select()
+      .single()
+
+    if (itemError) return { error: itemError }
+
+    // Create ingredients
+    if (data.ingredients.length > 0) {
+      const ingredientsToInsert = data.ingredients.map(ing => ({
+        recipe_item_id: item.id,
+        ingredient_item_id: ing.item_id,
+        quantity: ing.quantity
+      }))
+
+      const { error: ingError } = await supabase
+        .from('recipe_ingredients')
+        .insert(ingredientsToInsert)
+
+      if (ingError) {
+        // Rollback
+        await supabase.from('items').delete().eq('id', item.id)
+        return { error: ingError }
+      }
+    }
+
+    return { data: item, error: null }
   }
 }

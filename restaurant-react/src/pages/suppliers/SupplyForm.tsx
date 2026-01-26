@@ -320,8 +320,8 @@ export default function SupplyForm() {
                       </select>
                     </td>
                     <td className="py-3 px-2">
-                      <input type="number" min="1" value={item.quantity} onChange={(e) => handleItemChange(index, 'quantity', Number(e.target.value))}
-                        aria-label="الكمية" className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm" dir="ltr" />
+                      <input type="number" min="0.001" step="0.001" value={item.quantity} onChange={(e) => handleItemChange(index, 'quantity', Number(e.target.value))}
+                        aria-label="الكمية" placeholder="مثال: 19.200" className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm" dir="ltr" />
                     </td>
                     <td className="py-3 px-2">
                       <input type="number" min="0" step="0.01" value={item.unit_price} onChange={(e) => handleItemChange(index, 'unit_price', Number(e.target.value))}

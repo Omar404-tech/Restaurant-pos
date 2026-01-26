@@ -1,11 +1,11 @@
-import { useState, useEffect, FormEvent, useRef } from 'react'
+import { useState, useEffect, FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { transfersService } from '../../services/transfers.service'
 import { branchesService } from '../../services/branches.service'
 import { inventoryService, InventoryWithDetails } from '../../services/inventory.service'
 import { useAuth } from '../../contexts/AuthContext'
 import { Branch, Item } from '../../types/database.types'
-import { Save, ArrowRight, AlertCircle, Plus, Trash2, Barcode, Search } from 'lucide-react'
+import { Save, ArrowRight, AlertCircle, Plus, Trash2, Barcode, Search, X } from 'lucide-react'
 
 
 interface TransferItem {
@@ -28,9 +28,7 @@ export default function TransferForm() {
   const [notes, setNotes] = useState('')
   const [transferItems, setTransferItems] = useState<TransferItem[]>([{ item_id: '', requested_quantity: 1 }])
   const [sourceInventory, setSourceInventory] = useState<InventoryWithDetails[]>([])
-  const [barcodeInput, setBarcodeInput] = useState('')
-  const [barcodeError, setBarcodeError] = useState('')
-  const barcodeInputRef = useRef<HTMLInputElement>(null)
+  const [searchTerm, setSearchTerm] = useState<{ [key: number]: string }>({})
 
   useEffect(() => {
     fetchData()
@@ -65,59 +63,18 @@ export default function TransferForm() {
     setItems(itemsRes.data || [])
   }
 
+  const filteredItems = (index: number) => {
+    const term = searchTerm[index]?.toLowerCase() || ''
+    if (!term) return items
+    return items.filter(item => 
+      item.name_ar.toLowerCase().includes(term) ||
+      item.code.toLowerCase().includes(term) ||
+      ((item as Item & { barcode?: string }).barcode && (item as Item & { barcode?: string }).barcode!.toLowerCase().includes(term))
+    )
+  }
+
   const handleAddItem = () => {
     setTransferItems([...transferItems, { item_id: '', requested_quantity: 1 }])
-  }
-
-  // Barcode search function
-  const handleBarcodeSearch = async () => {
-    if (!barcodeInput.trim()) return
-    setBarcodeError('')
-
-    // Search by barcode or code
-    const item = items.find(i => 
-      (i as Item & { barcode?: string }).barcode === barcodeInput.trim() || 
-      i.code === barcodeInput.trim()
-    )
-
-    if (item) {
-      // Check if item already exists in list
-      const existingIndex = transferItems.findIndex(ti => ti.item_id === item.id)
-      if (existingIndex >= 0) {
-        // Increment quantity
-        const updated = [...transferItems]
-        updated[existingIndex].requested_quantity += 1
-        setTransferItems(updated)
-      } else {
-        // Add new item
-        const availableQty = getAvailableQty(item.id)
-        const newItem: TransferItem = {
-          item_id: item.id,
-          requested_quantity: 1,
-          availableQty
-        }
-        // Replace empty item or add new
-        const emptyIndex = transferItems.findIndex(ti => !ti.item_id)
-        if (emptyIndex >= 0) {
-          const updated = [...transferItems]
-          updated[emptyIndex] = newItem
-          setTransferItems(updated)
-        } else {
-          setTransferItems([...transferItems, newItem])
-        }
-      }
-      setBarcodeInput('')
-      barcodeInputRef.current?.focus()
-    } else {
-      setBarcodeError(`لم يتم العثور على صنف بالباركود: ${barcodeInput}`)
-    }
-  }
-
-  const handleBarcodeKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      handleBarcodeSearch()
-    }
   }
 
   const handleRemoveItem = (index: number) => {
@@ -232,69 +189,149 @@ export default function TransferForm() {
             </button>
           </div>
 
-          {/* Barcode Scanner Input */}
-          <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <label className="flex items-center gap-2 text-sm font-medium text-blue-800 mb-2">
-              <Barcode className="w-4 h-4" />
-              إضافة صنف بالباركود
-            </label>
-            <div className="flex gap-2">
-              <input
-                ref={barcodeInputRef}
-                type="text"
-                value={barcodeInput}
-                onChange={(e) => setBarcodeInput(e.target.value)}
-                onKeyPress={handleBarcodeKeyPress}
-                placeholder="امسح الباركود أو أدخل كود الصنف"
-                className="flex-1 px-4 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                dir="ltr"
-              />
-              <button
-                type="button"
-                onClick={handleBarcodeSearch}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                title="بحث بالباركود"
-                aria-label="بحث بالباركود"
-              >
-                <Search className="w-5 h-5" />
-              </button>
-            </div>
-            {barcodeError && (
-              <p className="text-red-600 text-sm mt-2">{barcodeError}</p>
-            )}
-            <p className="text-xs text-blue-600 mt-1">استخدم قارئ الباركود أو أدخل الكود يدوياً ثم اضغط Enter</p>
-          </div>
-
-          <div className="space-y-3">
+          <div className="space-y-4">
             {transferItems.map((item, index) => {
+              const selectedItem = items.find(i => i.id === item.item_id)
+              const searchResults = filteredItems(index)
+              const showResults = searchTerm[index] && searchResults.length > 0
               const availableQty = item.item_id ? getAvailableQty(item.item_id) : 0
               const isInsufficient = item.item_id && item.requested_quantity > availableQty
+              
               return (
-                <div key={index} className={`flex gap-3 items-start p-3 rounded-lg ${isInsufficient ? 'bg-red-50 border border-red-200' : 'bg-gray-50'}`}>
-                  <div className="flex-1">
-                    <select value={item.item_id} onChange={(e) => handleItemChange(index, 'item_id', e.target.value)}
-                      aria-label="الصنف"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
-                      <option value="">اختر الصنف</option>
-                      {items.map(i => <option key={i.id} value={i.id}>{i.name_ar} ({i.code})</option>)}
-                    </select>
-                    {item.item_id && fromBranch && (
-                      <p className={`text-xs mt-1 ${isInsufficient ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
-                        متوفر: {availableQty} {isInsufficient && '⚠️ الكمية غير كافية'}
-                      </p>
-                    )}
+                <div key={index} className={`p-4 rounded-lg border ${isInsufficient ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
+                  <div className="space-y-3">
+                    {/* Search Input with Icon */}
+                    <div className="relative">
+                      <div className="flex items-center gap-2 bg-blue-50 rounded-lg p-2">
+                        <div className="bg-blue-600 text-white p-2 rounded-lg">
+                          <Search className="w-5 h-5" />
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="امسح الباركود أو أدخل الكود أو اسم الصنف"
+                          value={searchTerm[index] || ''}
+                          onChange={(e) => {
+                            setSearchTerm({ ...searchTerm, [index]: e.target.value })
+                            // Auto-select if only one result
+                            const results = items.filter(i => 
+                              i.name_ar.toLowerCase().includes(e.target.value.toLowerCase()) ||
+                              i.code.toLowerCase().includes(e.target.value.toLowerCase()) ||
+                              ((i as Item & { barcode?: string }).barcode && (i as Item & { barcode?: string }).barcode!.toLowerCase().includes(e.target.value.toLowerCase()))
+                            )
+                            if (results.length === 1 && e.target.value.length > 2) {
+                              handleItemChange(index, 'item_id', results[0].id)
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && searchResults.length > 0) {
+                              handleItemChange(index, 'item_id', searchResults[0].id)
+                              setSearchTerm({ ...searchTerm, [index]: '' })
+                            }
+                          }}
+                          className="flex-1 px-3 py-2 border-0 bg-transparent focus:outline-none text-gray-700 placeholder-gray-500"
+                        />
+                      </div>
+                      
+                      {/* Search Results Dropdown */}
+                      {showResults && (
+                        <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto mt-1">
+                          {searchResults.map(i => (
+                            <button
+                              key={i.id}
+                              type="button"
+                              onClick={() => {
+                                handleItemChange(index, 'item_id', i.id)
+                                setSearchTerm({ ...searchTerm, [index]: '' })
+                              }}
+                              className="w-full text-right px-4 py-3 hover:bg-blue-50 border-b border-gray-100 last:border-0 transition-colors"
+                            >
+                              <div className="font-medium text-gray-900">{i.name_ar}</div>
+                              <div className="text-sm text-gray-500 flex items-center gap-2 mt-1">
+                                <span>الكود: {i.code}</span>
+                                {(i as Item & { barcode?: string }).barcode && (
+                                  <>
+                                    <span>•</span>
+                                    <span>الباركود: {(i as Item & { barcode?: string }).barcode}</span>
+                                  </>
+                                )}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* Selected Item Display */}
+                      {selectedItem && (
+                        <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium text-green-900">{selectedItem.name_ar}</p>
+                              <p className="text-sm text-green-700">
+                                الكود: {selectedItem.code}
+                                {(selectedItem as Item & { barcode?: string }).barcode && ` | الباركود: ${(selectedItem as Item & { barcode?: string }).barcode}`}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleItemChange(index, 'item_id', '')
+                                setSearchTerm({ ...searchTerm, [index]: '' })
+                              }}
+                              className="text-red-500 hover:text-red-700"
+                              title="إلغاء الاختيار"
+                            >
+                              <X className="w-5 h-5" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Helper Text */}
+                      {!selectedItem && !searchTerm[index] && (
+                        <p className="text-sm text-blue-600 mt-2 flex items-center gap-2">
+                          <Barcode className="w-4 h-4" />
+                          استخدم قارئ الباركود أو أدخل الكود يدوياً ثم اضغط Enter
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Quantity and Available Stock */}
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">الكمية المطلوبة</label>
+                        <input 
+                          type="number" 
+                          min="0.001"
+                          step="0.001"
+                          value={item.requested_quantity}
+                          onChange={(e) => handleItemChange(index, 'requested_quantity', Number(e.target.value))}
+                          aria-label="الكمية"
+                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm ${isInsufficient ? 'border-red-400 bg-red-50' : 'border-gray-300'}`} 
+                          placeholder="مثال: 19.200" 
+                        />
+                      </div>
+                      {item.item_id && fromBranch && (
+                        <div className="flex-1">
+                          <label className="block text-xs font-medium text-gray-600 mb-1">المتوفر في المخزن</label>
+                          <div className={`px-3 py-2 rounded-lg text-sm font-medium ${isInsufficient ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}`}>
+                            {availableQty} {isInsufficient && '⚠️ غير كافي'}
+                          </div>
+                        </div>
+                      )}
+                      {transferItems.length > 1 && (
+                        <div className="pt-5">
+                          <button 
+                            type="button" 
+                            onClick={() => handleRemoveItem(index)} 
+                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg" 
+                            title="حذف"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="w-24">
-                    <input type="number" min="1" value={item.requested_quantity}
-                      onChange={(e) => handleItemChange(index, 'requested_quantity', Number(e.target.value))}
-                      aria-label="الكمية"
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm ${isInsufficient ? 'border-red-400 bg-red-50' : 'border-gray-300'}`} placeholder="الكمية" />
-                  </div>
-                  {transferItems.length > 1 && (
-                    <button type="button" onClick={() => handleRemoveItem(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg" title="حذف">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
                 </div>
               )
             })}

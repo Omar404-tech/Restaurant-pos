@@ -42,6 +42,9 @@ export default function BarcodeItemSelector({
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [searchMode, setSearchMode] = useState<'barcode' | 'dropdown'>('barcode')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [suggestions, setSuggestions] = useState<Item[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
 
   useEffect(() => {
     fetchItems()
@@ -90,6 +93,7 @@ export default function BarcodeItemSelector({
   const handleBarcodeScan = async (barcode: string) => {
     setError('')
     setLoading(true)
+    setShowSuggestions(false)
 
     // Search by barcode first, then by code
     let item = items.find(i => i.barcode === barcode)
@@ -100,6 +104,7 @@ export default function BarcodeItemSelector({
     if (item) {
       setSelectedItem(item)
       onItemSelect(item)
+      setSearchTerm('')
       if (showInventory && branchId) {
         await fetchInventory(item.id, branchId)
       }
@@ -110,6 +115,39 @@ export default function BarcodeItemSelector({
     }
 
     setLoading(false)
+  }
+
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value)
+    setError('')
+
+    if (value.length >= 2) {
+      const searchLower = value.toLowerCase()
+      const filtered = items.filter(item =>
+        item.barcode?.toLowerCase().includes(searchLower) ||
+        item.code.toLowerCase().includes(searchLower) ||
+        item.name_ar.toLowerCase().includes(searchLower) ||
+        item.name?.toLowerCase().includes(searchLower)
+      ).slice(0, 10) // Show max 10 suggestions
+
+      setSuggestions(filtered)
+      setShowSuggestions(filtered.length > 0)
+    } else {
+      setSuggestions([])
+      setShowSuggestions(false)
+    }
+  }
+
+  const handleSuggestionClick = async (item: Item) => {
+    setSelectedItem(item)
+    onItemSelect(item)
+    setSearchTerm('')
+    setSuggestions([])
+    setShowSuggestions(false)
+    
+    if (showInventory && branchId) {
+      await fetchInventory(item.id, branchId)
+    }
   }
 
   const handleDropdownSelect = async (itemId: string) => {
@@ -131,6 +169,9 @@ export default function BarcodeItemSelector({
     setSelectedItem(null)
     setInventoryQty(null)
     setError('')
+    setSearchTerm('')
+    setSuggestions([])
+    setShowSuggestions(false)
   }
 
   return (
@@ -163,11 +204,36 @@ export default function BarcodeItemSelector({
 
       {/* Barcode Scanner Mode */}
       {searchMode === 'barcode' && (
-        <BarcodeScanner
-          onScan={handleBarcodeScan}
-          placeholder="امسح الباركود أو أدخل كود الصنف"
-          disabled={disabled || loading}
-        />
+        <div className="relative">
+          <BarcodeScanner
+            onScan={handleBarcodeScan}
+            placeholder="امسح الباركود أو ابحث بالكود أو الاسم"
+            disabled={disabled || loading}
+            value={searchTerm}
+            onChange={handleSearchChange}
+          />
+          
+          {/* Suggestions Dropdown */}
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+              {suggestions.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => handleSuggestionClick(item)}
+                  className="w-full px-4 py-2 text-right hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                >
+                  <div className="font-medium text-gray-900">{item.name_ar}</div>
+                  <div className="text-sm text-gray-500">
+                    {item.code}
+                    {item.barcode && ` | ${item.barcode}`}
+                    {item.unit && ` | ${item.unit.name_ar}`}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Dropdown Mode */}

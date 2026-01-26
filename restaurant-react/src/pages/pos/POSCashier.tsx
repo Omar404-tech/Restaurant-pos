@@ -6,7 +6,7 @@ import { shiftsService, CashierShift } from '../../services/shifts.service'
 import { useCart } from '../../hooks/useCart'
 import { MenuItem, MenuCategory, OrderPaymentMethod } from '../../types/database.types'
 import { formatCurrency } from '../../lib/utils'
-import { ShoppingCart, Plus, Minus, Trash2, CreditCard, Banknote, Smartphone, Wallet, X, Printer, Play, Square, Clock, DollarSign } from 'lucide-react'
+import { ShoppingCart, Plus, Minus, Trash2, CreditCard, Banknote, Smartphone, Wallet, X, Printer, Play, Square, Clock, DollarSign, Search } from 'lucide-react'
 
 export default function POSCashier() {
   const { user } = useAuth()
@@ -14,6 +14,7 @@ export default function POSCashier() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([])
   const [categories, setCategories] = useState<MenuCategory[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState(false)
   const [showPayment, setShowPayment] = useState(false)
@@ -35,23 +36,28 @@ export default function POSCashier() {
   }, [])
 
   const fetchData = async () => {
-    // Try to get branch-specific prices first
+    // Get POS items from inventory
     if (user?.branch_id) {
-      const branchPrices = await posManagementService.getMenuItemsForBranch(user.branch_id)
-      if (branchPrices.data && branchPrices.data.length > 0) {
-        setMenuItems(branchPrices.data as unknown as MenuItem[])
-      } else {
-        // Fallback to default prices
-        const itemsRes = await ordersService.getMenuItems()
-        setMenuItems(itemsRes.data || [])
+      const { data } = await posManagementService.getPOSItemsForCashier(user.branch_id)
+      if (data) {
+        // Transform to MenuItem format with stock info
+        const items = data.map((posItem: any) => ({
+          id: posItem.item_id,
+          code: posItem.item?.code || '',
+          name: posItem.item?.name || '',
+          name_ar: posItem.item?.name_ar || '',
+          price: parseFloat(posItem.price) || 0,
+          is_available: posItem.is_available && posItem.in_stock,
+          image_url: posItem.item?.image_url,
+          category_id: null,
+          stock_quantity: parseFloat(posItem.stock_quantity) || 0,
+          in_stock: posItem.in_stock
+        }))
+        setMenuItems(items)
       }
-    } else {
-      const itemsRes = await ordersService.getMenuItems()
-      setMenuItems(itemsRes.data || [])
     }
     
-    const categoriesRes = await ordersService.getMenuCategories()
-    setCategories(categoriesRes.data || [])
+    setCategories([]) // No categories for inventory items
     setLoading(false)
   }
 
@@ -100,9 +106,22 @@ export default function POSCashier() {
     return new Date(time).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
   }
 
-  const filteredItems = selectedCategory
-    ? menuItems.filter(item => item.category_id === selectedCategory)
-    : menuItems
+  const filteredItems = menuItems.filter(item => {
+    // Filter by search term
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase()
+      return (
+        item.name_ar?.toLowerCase().includes(term) ||
+        item.name?.toLowerCase().includes(term) ||
+        item.code?.toLowerCase().includes(term)
+      )
+    }
+    // Filter by category if selected
+    if (selectedCategory) {
+      return item.category_id === selectedCategory
+    }
+    return true
+  })
 
   // Print receipt function
   const printReceipt = (orderNumber: string, items: typeof cart.items, total: number, paid: number) => {
@@ -192,6 +211,13 @@ export default function POSCashier() {
 
     setProcessing(true)
     
+    console.log('Creating order with data:', {
+      branch_id: user.branch_id,
+      cashier_id: user.id,
+      shift_id: currentShift?.id,
+      items: cart.items
+    })
+    
     // Create order with shift
     const { data: order, error } = await ordersService.createWithShift({
       branch_id: user.branch_id,
@@ -205,8 +231,11 @@ export default function POSCashier() {
       })),
     })
 
+    console.log('Order creation result:', { order, error })
+
     if (error || !order) {
-      alert('فشل في إنشاء الطلب')
+      console.error('Order creation failed:', error)
+      alert('فشل في إنشاء الطلب: ' + (error?.message || 'خطأ غير معروف'))
       setProcessing(false)
       return
     }
@@ -296,56 +325,54 @@ export default function POSCashier() {
       <div className="flex flex-1 gap-4 p-4">
       {/* Menu Section */}
       <div className="flex-1 flex flex-col bg-gray-50 rounded-lg p-4">
-        {/* Categories */}
-        <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
-          <button
-            type="button"
-            onClick={() => setSelectedCategory(null)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-              !selectedCategory
-                ? 'bg-blue-600 text-white'
-                : 'bg-white text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            الكل
-          </button>
-          {categories.map(cat => (
-            <button
-              type="button"
-              key={cat.id}
-              onClick={() => setSelectedCategory(cat.id)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                selectedCategory === cat.id
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              {cat.name_ar}
-            </button>
-          ))}
+        {/* Search */}
+        <div className="mb-4">
+          <div className="relative">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="بحث عن منتج..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
         </div>
 
         {/* Menu Items Grid */}
         <div className="flex-1 overflow-y-auto">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {filteredItems.map(item => (
-              <button
-                type="button"
-                key={item.id}
-                onClick={() => cart.addItem(item)}
-                className="bg-white rounded-lg p-4 text-right hover:shadow-md transition-shadow border border-gray-100"
-              >
-                {item.image_url && (
-                  <img
-                    src={item.image_url}
-                    alt={item.name_ar}
-                    className="w-full h-24 object-cover rounded-lg mb-2"
-                  />
-                )}
-                <h3 className="font-medium text-gray-900 mb-1">{item.name_ar}</h3>
-                <p className="text-blue-600 font-bold">{formatCurrency(item.price)}</p>
-              </button>
-            ))}
+            {filteredItems.map(item => {
+                const stockQty = (item as any).stock_quantity || 0
+                const inStock = (item as any).in_stock || false
+                
+                return (
+                  <button
+                    type="button"
+                    key={item.id}
+                    onClick={() => inStock && cart.addItem(item)}
+                    disabled={!inStock}
+                    className={`bg-white rounded-lg p-4 text-right transition-shadow border ${
+                      inStock 
+                        ? 'border-gray-100 hover:shadow-md cursor-pointer' 
+                        : 'border-red-200 bg-red-50 opacity-60 cursor-not-allowed'
+                    }`}
+                  >
+                    {item.image_url && (
+                      <img
+                        src={item.image_url}
+                        alt={item.name_ar}
+                        className="w-full h-24 object-cover rounded-lg mb-2"
+                      />
+                    )}
+                    <h3 className="font-medium text-gray-900 mb-1">{item.name_ar}</h3>
+                    <p className="text-blue-600 font-bold mb-1">{formatCurrency(item.price)}</p>
+                    <div className={`text-xs font-medium ${inStock ? 'text-green-600' : 'text-red-600'}`}>
+                      {inStock ? `متاح: ${stockQty.toFixed(2)}` : 'غير متاح'}
+                    </div>
+                  </button>
+                )
+              })}
           </div>
         </div>
       </div>

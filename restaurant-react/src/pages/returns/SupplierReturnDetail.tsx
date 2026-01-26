@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { supabase, fixEncodingInData } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { formatDate, getStatusColor, translateStatus } from '../../lib/utils'
-import { ArrowRight, Package, Truck, Check, X } from 'lucide-react'
+import { ArrowRight, Package, Truck, Check, X, Printer } from 'lucide-react'
 
 interface SupplierReturn {
   id: string
@@ -43,6 +43,25 @@ export default function SupplierReturnDetail() {
     setReturnData(fixEncodingInData(data) as unknown as SupplierReturn)
     setLoading(false)
   }
+
+  const handlePrint = () => {
+    // Hide headers and footers by using CSS
+    const style = document.createElement('style');
+    style.innerHTML = `
+      @media print {
+        @page { margin: 0; }
+        body { margin: 1cm; }
+      }
+    `;
+    document.head.appendChild(style);
+    
+    window.print();
+    
+    // Remove the style after printing
+    setTimeout(() => {
+      document.head.removeChild(style);
+    }, 1000);
+  };
 
   const handleApprove = async () => {
     if (!returnData || !user) return
@@ -134,7 +153,7 @@ export default function SupplierReturnDetail() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 print:hidden">
         <button type="button" onClick={() => navigate('/returns')} className="p-2 hover:bg-gray-100 rounded-lg" title="رجوع">
           <ArrowRight className="w-5 h-5" />
         </button>
@@ -142,27 +161,47 @@ export default function SupplierReturnDetail() {
           <h1 className="text-2xl font-bold text-gray-900">مرتجع للمورد</h1>
           <p className="text-gray-600">{returnData.return_number}</p>
         </div>
+        <button
+          type="button"
+          onClick={handlePrint}
+          className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+          title="طباعة"
+        >
+          <Printer className="w-4 h-4" />
+          طباعة
+        </button>
         <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(returnData.status)}`}>
           {translateStatus(returnData.status)}
         </span>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
-          <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2"><Truck className="w-5 h-5" /> المورد</h3>
+      {/* Print Header - Only visible when printing */}
+      <div className="hidden print:block text-center mb-6">
+        <h1 className="text-2xl font-bold">مرتجع للمورد</h1>
+        <p className="text-lg text-gray-600 mt-2">{returnData.return_number}</p>
+        <p className="text-sm text-gray-500 mt-1">تاريخ الطباعة: {formatDate(new Date().toISOString())}</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 print:gap-4">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 print:shadow-none print:border print:rounded-none print:p-4">
+          <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Truck className="w-5 h-5 print:hidden" /> المورد
+          </h3>
           <p className="text-lg font-medium">{returnData.supplier?.name_ar}</p>
           <p className="text-sm text-gray-500">{returnData.supplier?.code}</p>
         </div>
-        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
-          <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2"><Package className="w-5 h-5" /> الصنف</h3>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 print:shadow-none print:border print:rounded-none print:p-4">
+          <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Package className="w-5 h-5 print:hidden" /> الصنف
+          </h3>
           <p className="text-lg font-medium">{returnData.item?.name_ar}</p>
           <p className="text-sm text-gray-500">{returnData.item?.code}</p>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 print:shadow-none print:border print:rounded-none print:p-4">
         <h3 className="font-semibold text-gray-900 mb-4">تفاصيل المرتجع</h3>
-        <div className="grid grid-cols-2 gap-4 text-sm">
+        <div className="grid grid-cols-2 gap-4 text-sm print:gap-2">
           <div><span className="text-gray-500">التاريخ:</span> <span className="font-medium">{formatDate(returnData.registered_at)}</span></div>
           <div><span className="text-gray-500">الكمية:</span> <span className="font-medium">{returnData.quantity}</span></div>
           <div><span className="text-gray-500">السبب:</span> <span className="font-medium">{returnData.reason || '-'}</span></div>
@@ -171,7 +210,7 @@ export default function SupplierReturnDetail() {
       </div>
 
       {(canApprove || canComplete) && (
-        <div className="flex gap-3">
+        <div className="flex gap-3 print:hidden">
           {canApprove && (
             <>
               <button type="button" onClick={handleApprove} disabled={actionLoading}

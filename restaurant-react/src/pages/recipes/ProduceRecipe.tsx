@@ -186,11 +186,13 @@ export default function ProduceRecipe() {
               <label className="block text-sm font-medium text-gray-700 mb-2">الكمية <span className="text-red-500">*</span></label>
               <input
                 type="number"
-                min="1"
+                min="0.001"
+                step="0.001"
                 value={formData.quantity}
                 onChange={(e) => setFormData({ ...formData, quantity: Number(e.target.value) })}
                 required
                 aria-label="الكمية"
+                placeholder="مثال: 19.200"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
                 dir="ltr"
               />

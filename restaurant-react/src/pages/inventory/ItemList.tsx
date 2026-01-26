@@ -120,7 +120,9 @@ export default function ItemList() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-gray-600">{item.unit}</td>
+                  <td className="px-6 py-4 text-gray-600">
+                    {typeof item.unit === 'object' && item.unit?.name_ar ? item.unit.name_ar : item.unit}
+                  </td>
                   <td className="px-6 py-4 text-gray-600">
                     {item.purchase_price ? formatCurrency(item.purchase_price) : '-'}
                   </td>

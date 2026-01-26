@@ -6,7 +6,7 @@ import { inventoryService } from '../../services/inventory.service'
 import { suppliersService } from '../../services/suppliers.service'
 import { useAuth } from '../../contexts/AuthContext'
 import { Branch, Item, Supplier } from '../../types/database.types'
-import { Save, ArrowRight, AlertCircle, Plus, Trash2 } from 'lucide-react'
+import { Save, ArrowRight, AlertCircle, Plus, Trash2, Search, X, Barcode } from 'lucide-react'
 
 interface OrderItem {
   item_id: string
@@ -31,12 +31,24 @@ export default function PurchaseOrderForm() {
     supplier_id: '',
     branch_id: user?.branch_id || '',
     expected_delivery_date: '',
+    payment_type: 'cash' as 'cash' | 'credit',
     notes: '',
   })
 
   const [orderItems, setOrderItems] = useState<OrderItem[]>([
     { item_id: '', quantity: 1, unit_price: 0, notes: '' }
   ])
+  const [searchTerm, setSearchTerm] = useState<{ [key: number]: string }>({})
+
+  const filteredItems = (index: number) => {
+    const term = searchTerm[index]?.toLowerCase() || ''
+    if (!term) return items
+    return items.filter(item => 
+      item.name_ar.toLowerCase().includes(term) ||
+      item.code.toLowerCase().includes(term) ||
+      (item.barcode && item.barcode.toLowerCase().includes(term))
+    )
+  }
 
   useEffect(() => {
     fetchData()
@@ -72,6 +84,15 @@ export default function PurchaseOrderForm() {
   const handleItemChange = (index: number, field: keyof OrderItem, value: string | number) => {
     const updated = [...orderItems]
     updated[index] = { ...updated[index], [field]: value }
+    
+    // If item is selected, auto-fill the price from item data
+    if (field === 'item_id' && value) {
+      const selectedItem = items.find(i => i.id === value)
+      if (selectedItem && selectedItem.purchase_price) {
+        updated[index].unit_price = selectedItem.purchase_price
+      }
+    }
+    
     setOrderItems(updated)
   }
 
@@ -105,6 +126,10 @@ export default function PurchaseOrderForm() {
         branch_id: formData.branch_id,
         subtotal: totalAmount,
         total_amount: totalAmount,
+        payment_type: formData.payment_type,
+        paid_amount: formData.payment_type === 'cash' ? totalAmount : 0,
+        remaining_amount: formData.payment_type === 'cash' ? 0 : totalAmount,
+        payment_status: formData.payment_type === 'cash' ? 'paid' : 'pending',
         status: 'pending',
         expected_delivery_date: formData.expected_delivery_date || null,
         notes: formData.notes || null,
@@ -198,6 +223,14 @@ export default function PurchaseOrderForm() {
                 aria-label="تاريخ التسليم المتوقع" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" dir="ltr" />
             </div>
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">طريقة الدفع <span className="text-red-500">*</span></label>
+              <select value={formData.payment_type} onChange={(e) => handleChange('payment_type', e.target.value as 'cash' | 'credit')} required
+                aria-label="طريقة الدفع" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                <option value="cash">كاش (دفع فوري)</option>
+                <option value="credit">آجل (دفع بالتقسيط)</option>
+              </select>
+            </div>
+            <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">ملاحظات</label>
               <input type="text" value={formData.notes} onChange={(e) => handleChange('notes', e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="ملاحظات..." />
@@ -229,34 +262,135 @@ export default function PurchaseOrderForm() {
                 </tr>
               </thead>
               <tbody>
-                {orderItems.map((item, index) => (
-                  <tr key={index} className="border-b border-gray-100">
-                    <td className="py-3 px-2">
-                      <select value={item.item_id} onChange={(e) => handleItemChange(index, 'item_id', e.target.value)}
-                        aria-label="اختر الصنف" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
-                        <option value="">اختر الصنف</option>
-                        {items.map(i => <option key={i.id} value={i.id}>{i.name_ar} ({i.code})</option>)}
-                      </select>
-                    </td>
-                    <td className="py-3 px-2">
-                      <input type="number" min="1" value={item.quantity} onChange={(e) => handleItemChange(index, 'quantity', Number(e.target.value))}
-                        aria-label="الكمية" className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm" dir="ltr" />
-                    </td>
-                    <td className="py-3 px-2">
-                      <input type="number" min="0" step="0.01" value={item.unit_price} onChange={(e) => handleItemChange(index, 'unit_price', Number(e.target.value))}
-                        aria-label="سعر الوحدة" className="w-28 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm" dir="ltr" />
-                    </td>
-                    <td className="py-3 px-2 text-sm font-medium text-gray-900">
-                      {(item.quantity * item.unit_price).toLocaleString('ar-EG')} ج.م
-                    </td>
-                    <td className="py-3 px-2">
-                      <button type="button" onClick={() => handleRemoveItem(index)} disabled={orderItems.length === 1}
-                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed" title="حذف">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {orderItems.map((item, index) => {
+                  const selectedItem = items.find(i => i.id === item.item_id)
+                  const searchResults = filteredItems(index)
+                  const showResults = searchTerm[index] && searchResults.length > 0
+                  
+                  return (
+                    <tr key={index} className="border-b border-gray-100">
+                      <td className="py-3 px-2">
+                        <div className="relative">
+                          {/* Search Input with Icon */}
+                          <div className="flex items-center gap-2 mb-2 bg-blue-50 rounded-lg p-2">
+                            <div className="bg-blue-600 text-white p-2 rounded-lg">
+                              <Search className="w-5 h-5" />
+                            </div>
+                            <input
+                              type="text"
+                              placeholder="امسح الباركود أو أدخل الكود أو اسم الصنف"
+                              value={searchTerm[index] || ''}
+                              onChange={(e) => {
+                                setSearchTerm({ ...searchTerm, [index]: e.target.value })
+                                // Auto-select if only one result
+                                const results = items.filter(i => 
+                                  i.name_ar.toLowerCase().includes(e.target.value.toLowerCase()) ||
+                                  i.code.toLowerCase().includes(e.target.value.toLowerCase()) ||
+                                  (i.barcode && i.barcode.toLowerCase().includes(e.target.value.toLowerCase()))
+                                )
+                                if (results.length === 1 && e.target.value.length > 2) {
+                                  handleItemChange(index, 'item_id', results[0].id)
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && searchResults.length > 0) {
+                                  handleItemChange(index, 'item_id', searchResults[0].id)
+                                  setSearchTerm({ ...searchTerm, [index]: '' })
+                                }
+                              }}
+                              className="flex-1 px-3 py-2 border-0 bg-transparent focus:outline-none text-gray-700 placeholder-gray-500"
+                            />
+                          </div>
+                          
+                          {/* Search Results Dropdown */}
+                          {showResults && (
+                            <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                              {searchResults.map(i => (
+                                <button
+                                  key={i.id}
+                                  type="button"
+                                  onClick={() => {
+                                    handleItemChange(index, 'item_id', i.id)
+                                    setSearchTerm({ ...searchTerm, [index]: '' })
+                                  }}
+                                  className="w-full text-right px-4 py-3 hover:bg-blue-50 border-b border-gray-100 last:border-0 transition-colors"
+                                >
+                                  <div className="font-medium text-gray-900">{i.name_ar}</div>
+                                  <div className="text-sm text-gray-500 flex items-center gap-2 mt-1">
+                                    <span>الكود: {i.code}</span>
+                                    {i.barcode && (
+                                      <>
+                                        <span>•</span>
+                                        <span>الباركود: {i.barcode}</span>
+                                      </>
+                                    )}
+                                    {i.purchase_price && (
+                                      <>
+                                        <span>•</span>
+                                        <span className="text-green-600">{i.purchase_price} ج.م</span>
+                                      </>
+                                    )}
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {/* Selected Item Display */}
+                          {selectedItem && (
+                            <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="font-medium text-green-900">{selectedItem.name_ar}</p>
+                                  <p className="text-sm text-green-700">
+                                    الكود: {selectedItem.code}
+                                    {selectedItem.barcode && ` | الباركود: ${selectedItem.barcode}`}
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    handleItemChange(index, 'item_id', '')
+                                    setSearchTerm({ ...searchTerm, [index]: '' })
+                                  }}
+                                  className="text-red-500 hover:text-red-700"
+                                  title="إلغاء الاختيار"
+                                >
+                                  <X className="w-5 h-5" />
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Helper Text */}
+                          {!selectedItem && !searchTerm[index] && (
+                            <p className="text-sm text-blue-600 mt-2 flex items-center gap-2">
+                              <Barcode className="w-4 h-4" />
+                              استخدم قارئ الباركود أو أدخل الكود يدوياً ثم اضغط Enter
+                            </p>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3 px-2">
+                        <input type="number" min="0.001" step="0.001" value={item.quantity} onChange={(e) => handleItemChange(index, 'quantity', Number(e.target.value))}
+                          aria-label="الكمية" placeholder="مثال: 19.200" className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm" dir="ltr" />
+                      </td>
+                      <td className="py-3 px-2">
+                        <input type="number" min="0" step="0.01" value={item.unit_price} onChange={(e) => handleItemChange(index, 'unit_price', Number(e.target.value))}
+                          aria-label="سعر الوحدة" className="w-28 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm" dir="ltr" />
+                      </td>
+                      <td className="py-3 px-2 text-sm font-medium text-gray-900">
+                        {(item.quantity * item.unit_price).toLocaleString('ar-EG')} ج.م
+                      </td>
+                      <td className="py-3 px-2">
+                        <button type="button" onClick={() => handleRemoveItem(index)} disabled={orderItems.length === 1}
+                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed" title="حذف">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

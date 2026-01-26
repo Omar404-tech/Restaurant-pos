@@ -76,6 +76,7 @@ import RecipeList from './pages/recipes/RecipeList'
 import RecipeForm from './pages/recipes/RecipeForm'
 import RecipeDetail from './pages/recipes/RecipeDetail'
 import ProduceRecipe from './pages/recipes/ProduceRecipe'
+import RecipeImport from './pages/recipes/RecipeImport'
 
 // Orders
 import OrdersList from './pages/orders/OrdersList'
@@ -171,6 +172,7 @@ function App() {
             {/* Recipes */}
             <Route path="/recipes" element={<RecipeList />} />
             <Route path="/recipes/new" element={<RecipeForm />} />
+            <Route path="/recipes/import" element={<RecipeImport />} />
             <Route path="/recipes/produce" element={<ProduceRecipe />} />
             <Route path="/recipes/:id" element={<RecipeDetail />} />
             <Route path="/recipes/:id/edit" element={<RecipeForm />} />

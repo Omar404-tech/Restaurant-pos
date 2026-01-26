@@ -1,11 +1,11 @@
-import { useState, useEffect, FormEvent, useRef } from 'react'
+import { useState, useEffect, FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { damagesService } from '../../services/damages.service'
 import { branchesService } from '../../services/branches.service'
 import { inventoryService } from '../../services/inventory.service'
 import { useAuth } from '../../contexts/AuthContext'
 import { Branch, Item, DamageReason } from '../../types/database.types'
-import { Save, ArrowRight, AlertCircle, Barcode, Search, Check } from 'lucide-react'
+import { Save, ArrowRight, AlertCircle, Barcode, Search, X } from 'lucide-react'
 
 export default function DamageForm() {
   const navigate = useNavigate()
@@ -26,10 +26,7 @@ export default function DamageForm() {
   const [unitCost, setUnitCost] = useState(0)
   const [reasonId, setReasonId] = useState('')
   const [description, setDescription] = useState('')
-  const [barcodeInput, setBarcodeInput] = useState('')
-  const [barcodeError, setBarcodeError] = useState('')
-  const [selectedItemName, setSelectedItemName] = useState('')
-  const barcodeInputRef = useRef<HTMLInputElement>(null)
+  const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {
     fetchData()
@@ -46,6 +43,16 @@ export default function DamageForm() {
     setReasons(reasonsRes.data || [])
   }
 
+  const filteredItems = () => {
+    const term = searchTerm.toLowerCase()
+    if (!term) return items
+    return items.filter(item => 
+      item.name_ar.toLowerCase().includes(term) ||
+      item.code.toLowerCase().includes(term) ||
+      ((item as Item & { barcode?: string }).barcode && (item as Item & { barcode?: string }).barcode!.toLowerCase().includes(term))
+    )
+  }
+
   const handleItemChange = (id: string) => {
     setItemId(id)
     const item = items.find(i => i.id === id)
@@ -53,41 +60,8 @@ export default function DamageForm() {
       if (item.purchase_price) {
         setUnitCost(item.purchase_price)
       }
-      setSelectedItemName(item.name_ar)
-    } else {
-      setSelectedItemName('')
     }
-  }
-
-  // Barcode search function
-  const handleBarcodeSearch = () => {
-    if (!barcodeInput.trim()) return
-    setBarcodeError('')
-
-    // Search by barcode or code
-    const item = items.find(i => 
-      (i as Item & { barcode?: string }).barcode === barcodeInput.trim() || 
-      i.code === barcodeInput.trim()
-    )
-
-    if (item) {
-      setItemId(item.id)
-      setSelectedItemName(item.name_ar)
-      if (item.purchase_price) {
-        setUnitCost(item.purchase_price)
-      }
-      setBarcodeInput('')
-      setBarcodeError('')
-    } else {
-      setBarcodeError(`لم يتم العثور على صنف بالباركود: ${barcodeInput}`)
-    }
-  }
-
-  const handleBarcodeKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      handleBarcodeSearch()
-    }
+    setSearchTerm('')
   }
 
   const handleSubmit = async (e: FormEvent) => {
@@ -148,53 +122,115 @@ export default function DamageForm() {
               {branches.map(b => <option key={b.id} value={b.id}>{b.name_ar}</option>)}
             </select>
           </div>
+          
           <div className="md:col-span-2">
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-              <Barcode className="w-4 h-4" />
-              البحث بالباركود
-            </label>
-            <div className="flex gap-2">
-              <input
-                ref={barcodeInputRef}
-                type="text"
-                value={barcodeInput}
-                onChange={(e) => setBarcodeInput(e.target.value)}
-                onKeyPress={handleBarcodeKeyPress}
-                placeholder="امسح الباركود أو أدخل كود الصنف"
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                dir="ltr"
-              />
-              <button
-                type="button"
-                onClick={handleBarcodeSearch}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                title="بحث بالباركود"
-                aria-label="بحث بالباركود"
-              >
-                <Search className="w-5 h-5" />
-              </button>
-            </div>
-            {barcodeError && <p className="text-red-600 text-sm mt-1">{barcodeError}</p>}
-            {selectedItemName && (
-              <div className="flex items-center gap-2 mt-2 p-2 bg-green-50 border border-green-200 rounded-lg text-green-700">
-                <Check className="w-4 h-4" />
-                <span>تم اختيار: {selectedItemName}</span>
-              </div>
-            )}
-          </div>
-          <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">الصنف <span className="text-red-500">*</span></label>
-            <select value={itemId} onChange={(e) => handleItemChange(e.target.value)} required
-              aria-label="الصنف"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-              <option value="">اختر الصنف</option>
-              {items.map(i => <option key={i.id} value={i.id}>{i.name_ar} ({i.code})</option>)}
-            </select>
+            <div className="relative">
+              {/* Search Input with Icon */}
+              <div className="flex items-center gap-2 bg-blue-50 rounded-lg p-2 mb-2">
+                <div className="bg-blue-600 text-white p-2 rounded-lg">
+                  <Search className="w-5 h-5" />
+                </div>
+                <input
+                  type="text"
+                  placeholder="امسح الباركود أو أدخل الكود أو اسم الصنف"
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value)
+                    // Auto-select if only one result
+                    const results = items.filter(i => 
+                      i.name_ar.toLowerCase().includes(e.target.value.toLowerCase()) ||
+                      i.code.toLowerCase().includes(e.target.value.toLowerCase()) ||
+                      ((i as Item & { barcode?: string }).barcode && (i as Item & { barcode?: string }).barcode!.toLowerCase().includes(e.target.value.toLowerCase()))
+                    )
+                    if (results.length === 1 && e.target.value.length > 2) {
+                      handleItemChange(results[0].id)
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const results = filteredItems()
+                      if (results.length > 0) {
+                        handleItemChange(results[0].id)
+                      }
+                    }
+                  }}
+                  className="flex-1 px-3 py-2 border-0 bg-transparent focus:outline-none text-gray-700 placeholder-gray-500"
+                />
+              </div>
+              
+              {/* Search Results Dropdown */}
+              {searchTerm && filteredItems().length > 0 && (
+                <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {filteredItems().map(i => (
+                    <button
+                      key={i.id}
+                      type="button"
+                      onClick={() => handleItemChange(i.id)}
+                      className="w-full text-right px-4 py-3 hover:bg-blue-50 border-b border-gray-100 last:border-0 transition-colors"
+                    >
+                      <div className="font-medium text-gray-900">{i.name_ar}</div>
+                      <div className="text-sm text-gray-500 flex items-center gap-2 mt-1">
+                        <span>الكود: {i.code}</span>
+                        {(i as Item & { barcode?: string }).barcode && (
+                          <>
+                            <span>•</span>
+                            <span>الباركود: {(i as Item & { barcode?: string }).barcode}</span>
+                          </>
+                        )}
+                        {i.purchase_price && (
+                          <>
+                            <span>•</span>
+                            <span className="text-green-600">{i.purchase_price} ج.م</span>
+                          </>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+              
+              {/* Selected Item Display */}
+              {itemId && items.find(i => i.id === itemId) && (
+                <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-green-900">{items.find(i => i.id === itemId)?.name_ar}</p>
+                      <p className="text-sm text-green-700">
+                        الكود: {items.find(i => i.id === itemId)?.code}
+                        {(items.find(i => i.id === itemId) as Item & { barcode?: string })?.barcode && 
+                          ` | الباركود: ${(items.find(i => i.id === itemId) as Item & { barcode?: string })?.barcode}`}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setItemId('')
+                        setSearchTerm('')
+                      }}
+                      className="text-red-500 hover:text-red-700"
+                      title="إلغاء الاختيار"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+              
+              {/* Helper Text */}
+              {!itemId && !searchTerm && (
+                <p className="text-sm text-blue-600 mt-2 flex items-center gap-2">
+                  <Barcode className="w-4 h-4" />
+                  استخدم قارئ الباركود أو أدخل الكود يدوياً ثم اضغط Enter
+                </p>
+              )}
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">الكمية <span className="text-red-500">*</span></label>
-            <input type="number" min="1" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} required
+            <input type="number" min="0.001" step="0.001" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} required
               aria-label="الكمية"
+              placeholder="مثال: 19.200"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
           </div>
           <div>

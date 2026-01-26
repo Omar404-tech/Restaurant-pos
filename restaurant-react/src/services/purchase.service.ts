@@ -27,6 +27,10 @@ export interface PurchaseOrderWithDetails extends Omit<PurchaseOrder, 'supplier'
   supplier: { id: string; name_ar: string; code: string }
   branch: { id: string; name_ar: string; code: string }
   items: (PurchaseOrderItem & { item: { id: string; name_ar: string; code: string; unit: string } })[]
+  payment_type?: 'cash' | 'credit'
+  paid_amount?: number
+  remaining_amount?: number
+  payment_status?: 'pending' | 'partial' | 'paid'
 }
 
 const purchaseService = {

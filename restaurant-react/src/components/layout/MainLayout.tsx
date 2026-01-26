@@ -38,16 +38,20 @@ export default function MainLayout() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Sidebar */}
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      {/* Sidebar - Hidden when printing */}
+      <div className="print:hidden">
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      </div>
 
       {/* Main content area */}
-      <div className="lg:mr-64">
-        {/* Navbar */}
-        <Navbar onMenuClick={() => setSidebarOpen(true)} />
+      <div className="lg:mr-64 print:!mr-0">
+        {/* Navbar - Hidden when printing */}
+        <div className="print:hidden">
+          <Navbar onMenuClick={() => setSidebarOpen(true)} />
+        </div>
 
         {/* Page content */}
-        <main className="p-4 lg:p-6">
+        <main className="p-4 lg:p-6 print:!p-0">
           <ErrorBoundary>
             <Outlet />
           </ErrorBoundary>

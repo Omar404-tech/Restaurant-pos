@@ -1,5 +1,5 @@
 import { useState, useEffect, FormEvent, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Navigate } from 'react-router-dom'
 import { supabase, fixEncodingInData } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { Save, ArrowRight, AlertCircle, Plus, Trash2, Barcode, Search } from 'lucide-react'
@@ -29,6 +29,16 @@ export default function ChefConsumptionForm() {
   const [error, setError] = useState('')
   const [branches, setBranches] = useState<Branch[]>([])
   const [items, setItems] = useState<Item[]>([])
+
+  // Check if user has permission to access this page
+  const userRole = typeof user?.role === 'object' && user?.role !== null 
+    ? (user.role as { name: string }).name 
+    : user?.role
+
+  // Only admin and warehouse_manager can access chef consumption
+  if (userRole && !['admin', 'warehouse_manager'].includes(userRole)) {
+    return <Navigate to="/dashboard" replace />
+  }
 
   const [formData, setFormData] = useState({
     branch_id: '',

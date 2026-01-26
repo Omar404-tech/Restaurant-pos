@@ -1,10 +1,11 @@
-import { useState, useEffect, FormEvent, useRef } from 'react'
+import { useState, useEffect, FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { recipeService, CreateRecipeData } from '../../services/recipe.service'
 import { inventoryService } from '../../services/inventory.service'
 import { Item } from '../../types/database.types'
 import { supabase, fixEncodingInData } from '../../lib/supabase'
-import { Save, ArrowRight, AlertCircle, Plus, Trash2, ChefHat, Barcode, Search } from 'lucide-react'
+import { Save, ArrowRight, AlertCircle, Plus, Trash2, ChefHat } from 'lucide-react'
+import BarcodeItemSelector from '../../components/ui/BarcodeItemSelector'
 
 interface Unit {
   id: string
@@ -38,17 +39,11 @@ export default function RecipeForm() {
     description: '',
     unit_id: '',
     min_stock_level: 0,
-    purchase_price: 0,
-    selling_price: 0,
   })
 
   const [ingredients, setIngredients] = useState<IngredientRow[]>([
     { ingredient_item_id: '', quantity: 1, unit_id: '', notes: '' }
   ])
-
-  const [barcodeInput, setBarcodeInput] = useState('')
-  const [barcodeError, setBarcodeError] = useState('')
-  const barcodeInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetchData()
@@ -83,8 +78,6 @@ export default function RecipeForm() {
           description: recipe.description || '',
           unit_id: recipe.unit_id || '',
           min_stock_level: recipe.min_stock_level || 0,
-          purchase_price: recipe.purchase_price || 0,
-          selling_price: recipe.selling_price || 0,
         })
         if (recipe.ingredients?.length > 0) {
           setIngredients(recipe.ingredients.map(ing => ({
@@ -125,48 +118,33 @@ export default function RecipeForm() {
     setIngredients(updated)
   }
 
-  // Barcode search
-  const handleBarcodeSearch = () => {
-    if (!barcodeInput.trim()) return
-    setBarcodeError('')
-
-    const item = items.find(i =>
-      i.barcode === barcodeInput.trim() || i.code === barcodeInput.trim()
-    )
-
-    if (item) {
-      const existingIndex = ingredients.findIndex(ing => ing.ingredient_item_id === item.id)
-      if (existingIndex >= 0) {
+  // Handle item selection from BarcodeItemSelector
+  const handleItemSelect = (item: Item) => {
+    const existingIndex = ingredients.findIndex(ing => ing.ingredient_item_id === item.id)
+    
+    if (existingIndex >= 0) {
+      // Item exists, increase quantity
+      const updated = [...ingredients]
+      updated[existingIndex].quantity += 1
+      setIngredients(updated)
+    } else {
+      // Add new item
+      const newIng: IngredientRow = {
+        ingredient_item_id: item.id,
+        quantity: 1,
+        unit_id: item.unit_id || '',
+        notes: ''
+      }
+      
+      // Find first empty row or add new row
+      const emptyIndex = ingredients.findIndex(ing => !ing.ingredient_item_id)
+      if (emptyIndex >= 0) {
         const updated = [...ingredients]
-        updated[existingIndex].quantity += 1
+        updated[emptyIndex] = newIng
         setIngredients(updated)
       } else {
-        const newIng: IngredientRow = {
-          ingredient_item_id: item.id,
-          quantity: 1,
-          unit_id: item.unit_id || '',
-          notes: ''
-        }
-        const emptyIndex = ingredients.findIndex(ing => !ing.ingredient_item_id)
-        if (emptyIndex >= 0) {
-          const updated = [...ingredients]
-          updated[emptyIndex] = newIng
-          setIngredients(updated)
-        } else {
-          setIngredients([...ingredients, newIng])
-        }
+        setIngredients([...ingredients, newIng])
       }
-      setBarcodeInput('')
-      barcodeInputRef.current?.focus()
-    } else {
-      setBarcodeError(`لم يتم العثور على صنف بالباركود: ${barcodeInput}`)
-    }
-  }
-
-  const handleBarcodeKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      handleBarcodeSearch()
     }
   }
 
@@ -198,8 +176,6 @@ export default function RecipeForm() {
           description: formData.description,
           unit_id: formData.unit_id,
           min_stock_level: formData.min_stock_level,
-          purchase_price: formData.purchase_price,
-          selling_price: formData.selling_price,
           updated_at: new Date().toISOString()
         })
         .eq('id', id)
@@ -320,30 +296,6 @@ export default function RecipeForm() {
                 placeholder="ساندوتش زنجر"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">سعر التكلفة</label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.purchase_price}
-                onChange={(e) => setFormData({ ...formData, purchase_price: Number(e.target.value) })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                dir="ltr"
-                placeholder="0.00"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">سعر البيع</label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.selling_price}
-                onChange={(e) => setFormData({ ...formData, selling_price: Number(e.target.value) })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                dir="ltr"
-                placeholder="0.00"
-              />
-            </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">الوصف</label>
               <textarea
@@ -353,6 +305,11 @@ export default function RecipeForm() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
                 placeholder="وصف الريسبي..."
               />
+            </div>
+            <div className="md:col-span-2 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800">
+                <strong>ملاحظة:</strong> سعر التكلفة يُحسب تلقائياً من مجموع تكلفة المكونات. سعر البيع يتم تحديده في إدارة نقاط البيع لكل فرع.
+              </p>
             </div>
           </div>
         </div>
@@ -367,28 +324,12 @@ export default function RecipeForm() {
             </button>
           </div>
 
-          {/* Barcode Scanner */}
-          <div className="mb-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
-            <label className="flex items-center gap-2 text-sm font-medium text-orange-800 mb-2">
-              <Barcode className="w-4 h-4" />
-              إضافة مكون بالباركود
-            </label>
-            <div className="flex gap-2">
-              <input
-                ref={barcodeInputRef}
-                type="text"
-                value={barcodeInput}
-                onChange={(e) => setBarcodeInput(e.target.value)}
-                onKeyDown={handleBarcodeKeyDown}
-                placeholder="امسح الباركود أو أدخل كود الصنف"
-                className="flex-1 px-4 py-2 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500"
-                dir="ltr"
-              />
-              <button type="button" onClick={handleBarcodeSearch} className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700" title="بحث">
-                <Search className="w-5 h-5" />
-              </button>
-            </div>
-            {barcodeError && <p className="text-red-600 text-sm mt-2">{barcodeError}</p>}
+          {/* Smart Item Selector */}
+          <div className="mb-4">
+            <BarcodeItemSelector
+              onItemSelect={handleItemSelect}
+              className="w-full"
+            />
           </div>
 
           {/* Ingredients Table */}

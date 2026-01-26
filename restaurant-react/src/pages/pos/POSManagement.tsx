@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { posManagementService, BranchMenuPrice } from '../../services/posManagement.service'
+import { posManagementService, BranchPOSItem, AvailableInventoryItem } from '../../services/posManagement.service'
 import { formatCurrency } from '../../lib/utils'
 import { 
-  Store, DollarSign, Save, RotateCcw, Copy, Percent, 
-  Check, X, Eye, EyeOff, Search
+  Store, DollarSign, Save, Copy, Percent, 
+  Check, X, Eye, EyeOff, Search, Plus, Trash2, Package
 } from 'lucide-react'
 
 interface Branch {
@@ -11,21 +11,26 @@ interface Branch {
   code: string
   name: string
   name_ar: string
-  priceCount: number
+  itemCount: number
 }
 
 export default function POSManagement() {
   const [branches, setBranches] = useState<Branch[]>([])
   const [selectedBranch, setSelectedBranch] = useState<string | null>(null)
-  const [prices, setPrices] = useState<BranchMenuPrice[]>([])
+  const [posItems, setPosItems] = useState<BranchPOSItem[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [editedPrices, setEditedPrices] = useState<Record<string, { price: number; is_available: boolean }>>({})
+  const [editedCosts, setEditedCosts] = useState<Record<string, number>>({})
   const [showCopyModal, setShowCopyModal] = useState(false)
   const [showPercentModal, setShowPercentModal] = useState(false)
+  const [showAddItemModal, setShowAddItemModal] = useState(false)
   const [percentValue, setPercentValue] = useState<string>('')
   const [copySourceBranch, setCopySourceBranch] = useState<string>('')
+  const [availableItems, setAvailableItems] = useState<AvailableInventoryItem[]>([])
+  const [selectedItemToAdd, setSelectedItemToAdd] = useState<string>('')
+  const [newItemPrice, setNewItemPrice] = useState<string>('')
 
   useEffect(() => {
     fetchBranches()
@@ -33,26 +38,33 @@ export default function POSManagement() {
 
   useEffect(() => {
     if (selectedBranch) {
-      fetchPrices(selectedBranch)
+      fetchPOSItems(selectedBranch)
+      fetchAvailableItems(selectedBranch)
     }
   }, [selectedBranch])
 
   const fetchBranches = async () => {
-    const { data } = await posManagementService.getBranchesWithPriceCounts()
+    const { data } = await posManagementService.getBranchesWithItemCounts()
     setBranches((data || []) as unknown as Branch[])
     setLoading(false)
   }
 
-  const fetchPrices = async (branchId: string) => {
+  const fetchPOSItems = async (branchId: string) => {
     setLoading(true)
-    const { data } = await posManagementService.getBranchPrices(branchId)
-    setPrices(data || [])
+    const { data } = await posManagementService.getBranchPOSItems(branchId)
+    setPosItems(data || [])
     setEditedPrices({})
+    setEditedCosts({})
     setLoading(false)
   }
 
+  const fetchAvailableItems = async (branchId: string) => {
+    const { data } = await posManagementService.getAvailableInventoryItems(branchId)
+    setAvailableItems(data || [])
+  }
+
   const handlePriceChange = (id: string, field: 'price' | 'is_available', value: number | boolean) => {
-    const current = prices.find(p => p.id === id)
+    const current = posItems.find(p => p.id === id)
     if (!current) return
 
     setEditedPrices(prev => ({
@@ -64,28 +76,65 @@ export default function POSManagement() {
     }))
   }
 
-  const hasChanges = Object.keys(editedPrices).length > 0
+  const handleCostChange = (itemId: string, cost: number) => {
+    setEditedCosts(prev => ({
+      ...prev,
+      [itemId]: cost
+    }))
+  }
+
+  const hasChanges = Object.keys(editedPrices).length > 0 || Object.keys(editedCosts).length > 0
 
   const handleSave = async () => {
     if (!selectedBranch || !hasChanges) return
     
     setSaving(true)
     
+    // Update POS items (selling prices)
     for (const [id, updates] of Object.entries(editedPrices)) {
-      await posManagementService.updateBranchPrice(id, updates)
+      await posManagementService.updatePOSItem(id, updates)
     }
     
-    await fetchPrices(selectedBranch)
+    // Update item costs (purchase prices)
+    for (const [itemId, cost] of Object.entries(editedCosts)) {
+      await posManagementService.updateItemCost(itemId, cost)
+    }
+    
+    await fetchPOSItems(selectedBranch)
     setSaving(false)
   }
 
-  const handleResetToDefault = async () => {
-    if (!selectedBranch) return
-    if (!confirm('هل أنت متأكد من إعادة تعيين جميع الأسعار للقيم الافتراضية؟')) return
+  const handleRemoveItem = async (id: string) => {
+    if (!confirm('هل أنت متأكد من إزالة هذا المنتج من نقطة البيع؟')) return
     
     setSaving(true)
-    await posManagementService.resetToDefaultPrices(selectedBranch)
-    await fetchPrices(selectedBranch)
+    await posManagementService.removeItemFromPOS(id)
+    if (selectedBranch) {
+      await fetchPOSItems(selectedBranch)
+      await fetchBranches()
+    }
+    setSaving(false)
+  }
+
+  const handleAddItem = async () => {
+    if (!selectedBranch || !selectedItemToAdd || !newItemPrice) return
+    
+    setSaving(true)
+    const { error } = await posManagementService.addItemToPOS(
+      selectedBranch,
+      selectedItemToAdd,
+      parseFloat(newItemPrice)
+    )
+    
+    if (error) {
+      alert('فشل في إضافة المنتج')
+    } else {
+      setShowAddItemModal(false)
+      setSelectedItemToAdd('')
+      setNewItemPrice('')
+      await fetchPOSItems(selectedBranch)
+      await fetchBranches()
+    }
     setSaving(false)
   }
 
@@ -94,7 +143,7 @@ export default function POSManagement() {
     
     setSaving(true)
     await posManagementService.copyPricesFromBranch(copySourceBranch, selectedBranch)
-    await fetchPrices(selectedBranch)
+    await fetchPOSItems(selectedBranch)
     setShowCopyModal(false)
     setCopySourceBranch('')
     setSaving(false)
@@ -108,21 +157,26 @@ export default function POSManagement() {
     
     setSaving(true)
     await posManagementService.applyPercentageChange(selectedBranch, percent)
-    await fetchPrices(selectedBranch)
+    await fetchPOSItems(selectedBranch)
     setShowPercentModal(false)
     setPercentValue('')
     setSaving(false)
   }
 
-  const filteredPrices = prices.filter(p => {
+  const filteredPOSItems = posItems.filter(p => {
     if (!searchTerm) return true
     const term = searchTerm.toLowerCase()
     return (
-      p.menu_item?.name?.toLowerCase().includes(term) ||
-      p.menu_item?.name_ar?.toLowerCase().includes(term) ||
-      p.menu_item?.code?.toLowerCase().includes(term)
+      p.item?.name?.toLowerCase().includes(term) ||
+      p.item?.name_ar?.toLowerCase().includes(term) ||
+      p.item?.code?.toLowerCase().includes(term)
     )
   })
+
+  // Filter available items to exclude already added ones
+  const itemsToAdd = availableItems.filter(
+    item => !posItems.some(pos => pos.item_id === item.id)
+  )
 
   const selectedBranchData = branches.find(b => b.id === selectedBranch)
 
@@ -132,7 +186,7 @@ export default function POSManagement() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">إدارة نقاط البيع</h1>
-          <p className="text-gray-600 mt-1">تحديد أسعار المنتجات لكل فرع</p>
+          <p className="text-gray-600 mt-1">إدارة المنتجات المتاحة للبيع في كل فرع</p>
         </div>
       </div>
 
@@ -164,22 +218,22 @@ export default function POSManagement() {
                 )}
               </div>
               <h3 className="font-semibold text-gray-900 mt-2">{branch.name_ar || branch.name}</h3>
-              <p className="text-sm text-gray-500 mt-1">{branch.priceCount} منتج</p>
+              <p className="text-sm text-gray-500 mt-1">{branch.itemCount} منتج</p>
             </button>
           ))}
         </div>
       </div>
 
-      {/* Price Management */}
+      {/* POS Items Management */}
       {selectedBranch && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           {/* Toolbar */}
           <div className="p-4 border-b border-gray-200">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-green-600" />
+                <Package className="w-5 h-5 text-green-600" />
                 <h2 className="text-lg font-semibold text-gray-900">
-                  أسعار {selectedBranchData?.name_ar || selectedBranchData?.name}
+                  منتجات {selectedBranchData?.name_ar || selectedBranchData?.name}
                 </h2>
               </div>
               
@@ -198,6 +252,15 @@ export default function POSManagement() {
 
                 {/* Actions */}
                 <button
+                  onClick={() => setShowAddItemModal(true)}
+                  className="flex items-center gap-2 px-3 py-2 text-sm bg-green-50 text-green-700 rounded-lg hover:bg-green-100"
+                  title="إضافة منتج"
+                >
+                  <Plus className="w-4 h-4" />
+                  إضافة منتج
+                </button>
+
+                <button
                   onClick={() => setShowPercentModal(true)}
                   className="flex items-center gap-2 px-3 py-2 text-sm bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100"
                   title="تطبيق نسبة مئوية"
@@ -213,15 +276,6 @@ export default function POSManagement() {
                 >
                   <Copy className="w-4 h-4" />
                   نسخ
-                </button>
-                
-                <button
-                  onClick={handleResetToDefault}
-                  className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100"
-                  title="إعادة للافتراضي"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  افتراضي
                 </button>
 
                 {hasChanges && (
@@ -242,81 +296,140 @@ export default function POSManagement() {
             </div>
           </div>
 
-          {/* Price Table */}
+          {/* Items Table */}
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">الكود</th>
                   <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">المنتج</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">التصنيف</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">السعر الافتراضي</th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">سعر الفرع</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">متاح</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">النوع</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">الوحدة</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">الكمية المتاحة</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">سعر التكلفة</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">سعر البيع</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-600">الربح</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">الحالة</th>
+                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-600">إجراءات</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {loading ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center">
+                    <td colSpan={10} className="px-4 py-8 text-center">
                       <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
                     </td>
                   </tr>
-                ) : filteredPrices.length === 0 ? (
+                ) : filteredPOSItems.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={10} className="px-4 py-8 text-center text-gray-500">
                       لا توجد منتجات
                     </td>
                   </tr>
                 ) : (
-                  filteredPrices.map(item => {
+                  filteredPOSItems.map(item => {
                     const edited = editedPrices[item.id]
                     const currentPrice = edited?.price ?? item.price
                     const currentAvailable = edited?.is_available ?? item.is_available
-                    const defaultPrice = item.menu_item?.price || 0
-                    const priceDiff = currentPrice - defaultPrice
+                    const stockQty = item.stock_quantity || 0
+                    const inStock = item.in_stock || false
+                    
+                    // Cost price - use calculated cost for recipes, purchase price for regular items
+                    const isRecipe = item.item?.is_recipe || false
+                    const editedCost = editedCosts[item.item_id]
+                    const baseCost = isRecipe 
+                      ? (item.item?.calculated_cost ?? 0)
+                      : (item.item?.purchase_price ?? 0)
+                    const currentCost = editedCost ?? baseCost
+                    
+                    // Profit calculation
+                    const profit = currentPrice - currentCost
+                    const profitPercent = currentCost > 0 ? ((profit / currentCost) * 100) : 0
+                    
+                    const hasEdits = edited || editedCost !== undefined
                     
                     return (
-                      <tr key={item.id} className={edited ? 'bg-yellow-50' : ''}>
+                      <tr key={item.id} className={hasEdits ? 'bg-yellow-50' : ''}>
                         <td className="px-4 py-3">
                           <span className="text-sm font-mono text-gray-600">
-                            {item.menu_item?.code}
+                            {item.item?.code}
                           </span>
                         </td>
                         <td className="px-4 py-3">
                           <div>
-                            <p className="font-medium text-gray-900">{item.menu_item?.name_ar}</p>
-                            <p className="text-sm text-gray-500">{item.menu_item?.name}</p>
+                            <p className="font-medium text-gray-900">{item.item?.name_ar}</p>
+                            <p className="text-sm text-gray-500">{item.item?.name}</p>
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-sm">
-                            {item.menu_item?.category?.name_ar || '-'}
+                          <span className={`px-2 py-1 rounded text-sm ${
+                            item.item?.is_recipe 
+                              ? 'bg-purple-100 text-purple-700' 
+                              : 'bg-gray-100 text-gray-700'
+                          }`}>
+                            {item.item?.is_recipe ? 'ريسبي' : 'منتج'}
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="text-gray-600">{formatCurrency(defaultPrice)}</span>
+                          <span className="text-sm text-gray-600">
+                            {item.item?.unit?.name_ar || '-'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`font-medium ${
+                            inStock ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {stockQty.toFixed(2)}
+                          </span>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <input
                               type="number"
-                              value={currentPrice}
-                              onChange={(e) => handlePriceChange(item.id, 'price', parseFloat(e.target.value) || 0)}
-                              className="w-24 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                              value={currentCost}
+                              onChange={(e) => handleCostChange(item.item_id, parseFloat(e.target.value) || 0)}
+                              disabled={isRecipe}
+                              className={`w-24 px-3 py-1.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 ${
+                                isRecipe 
+                                  ? 'bg-purple-50 border-purple-200 cursor-not-allowed' 
+                                  : 'border-gray-300'
+                              }`}
                               min="0"
                               step="0.01"
-                              aria-label={`سعر ${item.menu_item?.name_ar}`}
+                              aria-label={`سعر التكلفة ${item.item?.name_ar}`}
+                              title={isRecipe ? 'محسوب تلقائياً من المكونات' : 'سعر الشراء'}
                             />
-                            {priceDiff !== 0 && (
-                              <span className={`text-xs font-medium ${priceDiff > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                {priceDiff > 0 ? '+' : ''}{priceDiff.toFixed(2)}
+                            {isRecipe && (
+                              <span className="text-xs text-purple-600" title="محسوب من المكونات">
+                                🧮
                               </span>
                             )}
                           </div>
                         </td>
+                        <td className="px-4 py-3">
+                          <input
+                            type="number"
+                            value={currentPrice}
+                            onChange={(e) => handlePriceChange(item.id, 'price', parseFloat(e.target.value) || 0)}
+                            className="w-24 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                            min="0"
+                            step="0.01"
+                            aria-label={`سعر البيع ${item.item?.name_ar}`}
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="text-sm">
+                            <div className={`font-medium ${profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {profit.toFixed(2)} ج
+                            </div>
+                            <div className={`text-xs ${profitPercent >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                              {profitPercent.toFixed(1)}%
+                            </div>
+                          </div>
+                        </td>
                         <td className="px-4 py-3 text-center">
                           <button
+                            type="button"
                             onClick={() => handlePriceChange(item.id, 'is_available', !currentAvailable)}
                             className={`p-2 rounded-lg transition-colors ${
                               currentAvailable 
@@ -326,6 +439,16 @@ export default function POSManagement() {
                             title={currentAvailable ? 'متاح - اضغط للإخفاء' : 'غير متاح - اضغط للإظهار'}
                           >
                             {currentAvailable ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                          </button>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveItem(item.id)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="إزالة من نقطة البيع"
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </td>
                       </tr>
@@ -338,17 +461,79 @@ export default function POSManagement() {
         </div>
       )}
 
+      {/* Add Item Modal */}
+      {showAddItemModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-900">إضافة منتج لنقطة البيع</h3>
+              <button onClick={() => setShowAddItemModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="إغلاق">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-gray-600 mb-4">اختر منتج من المخزن لإضافته لنقطة البيع</p>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">المنتج</label>
+              <select
+                value={selectedItemToAdd}
+                onChange={(e) => setSelectedItemToAdd(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                aria-label="اختر المنتج"
+              >
+                <option value="">اختر المنتج...</option>
+                {itemsToAdd.map(item => (
+                  <option key={item.id} value={item.id}>
+                    {item.name_ar} ({item.is_recipe ? 'ريسبي' : 'منتج'}) - متاح: {item.stock_quantity.toFixed(2)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">السعر</label>
+              <input
+                type="number"
+                value={newItemPrice}
+                onChange={(e) => setNewItemPrice(e.target.value)}
+                placeholder="أدخل السعر"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                aria-label="السعر"
+                min="0"
+                step="0.01"
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowAddItemModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                إلغاء
+              </button>
+              <button
+                onClick={handleAddItem}
+                disabled={!selectedItemToAdd || !newItemPrice || saving}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+              >
+                {saving ? 'جاري الإضافة...' : 'إضافة'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Copy Modal */}
       {showCopyModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-900">نسخ الأسعار من فرع آخر</h3>
+              <h3 className="text-lg font-bold text-gray-900">نسخ المنتجات من فرع آخر</h3>
               <button onClick={() => setShowCopyModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" title="إغلاق">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <p className="text-gray-600 mb-4">اختر الفرع المصدر لنسخ أسعاره إلى الفرع الحالي</p>
+            <p className="text-gray-600 mb-4">اختر الفرع المصدر لنسخ منتجاته وأسعاره إلى الفرع الحالي</p>
             <select
               value={copySourceBranch}
               onChange={(e) => setCopySourceBranch(e.target.value)}
@@ -374,7 +559,7 @@ export default function POSManagement() {
                 disabled={!copySourceBranch || saving}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
-                {saving ? 'جاري النسخ...' : 'نسخ الأسعار'}
+                {saving ? 'جاري النسخ...' : 'نسخ'}
               </button>
             </div>
           </div>

@@ -2,10 +2,14 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { recipeService } from '../../services/recipe.service'
 import { Item } from '../../types/database.types'
-import { Plus, Search, ChefHat, Eye, Edit, Factory } from 'lucide-react'
+import { Plus, Search, ChefHat, Eye, Edit, Factory, DollarSign, Upload } from 'lucide-react'
+
+interface RecipeWithCost extends Item {
+  calculated_cost?: number
+}
 
 export default function RecipeList() {
-  const [recipes, setRecipes] = useState<Item[]>([])
+  const [recipes, setRecipes] = useState<RecipeWithCost[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
 
@@ -15,7 +19,7 @@ export default function RecipeList() {
 
   const fetchRecipes = async () => {
     setLoading(true)
-    const { data } = await recipeService.getAllRecipes()
+    const { data } = await recipeService.getAllRecipesWithCost()
     setRecipes(data || [])
     setLoading(false)
   }
@@ -44,6 +48,13 @@ export default function RecipeList() {
           <p className="text-gray-600">إدارة الريسبيات والمنتجات المصنعة</p>
         </div>
         <div className="flex gap-3">
+          <Link
+            to="/recipes/import"
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+          >
+            <Upload className="w-5 h-5" />
+            استيراد من Excel
+          </Link>
           <Link
             to="/recipes/produce"
             className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
@@ -111,8 +122,17 @@ export default function RecipeList() {
               )}
 
               <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                <div className="text-sm text-gray-500">
-                  {recipe.selling_price ? `${recipe.selling_price.toLocaleString('ar-EG')} ج.م` : '-'}
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-green-600" />
+                  <div className="text-sm">
+                    <span className="text-gray-500">التكلفة: </span>
+                    <span className="font-semibold text-green-700">
+                      {recipe.calculated_cost 
+                        ? `${recipe.calculated_cost.toFixed(2)} ج.م`
+                        : 'غير محسوبة'
+                      }
+                    </span>
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <Link

@@ -132,6 +132,7 @@ export default function PurchaseOrderList() {
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">الفرع</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">التاريخ</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">القيمة</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">حالة الدفع</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">الحالة</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">إجراءات</th>
                 </tr>
@@ -147,6 +148,22 @@ export default function PurchaseOrderList() {
                       <td className="px-4 py-3 text-gray-600">{order.branch?.name_ar}</td>
                       <td className="px-4 py-3 text-gray-600">{new Date(order.order_date).toLocaleDateString('ar-EG')}</td>
                       <td className="px-4 py-3 font-medium text-gray-900">{formatCurrency(order.total_amount)}</td>
+                      <td className="px-4 py-3">
+                        {order.payment_type === 'cash' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                            كاش
+                          </span>
+                        ) : (
+                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                            order.payment_status === 'paid' ? 'bg-green-100 text-green-700' :
+                            order.payment_status === 'partial' ? 'bg-blue-100 text-blue-700' :
+                            'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {order.payment_status === 'paid' ? 'مدفوع' :
+                             order.payment_status === 'partial' ? 'جزئي' : 'آجل'}
+                          </span>
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${status.color}`}>
                           <StatusIcon className="w-3 h-3" />

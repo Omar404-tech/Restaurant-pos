@@ -232,9 +232,11 @@ export default function DailyCountForm() {
                             <input
                               type="number"
                               min="0"
+                              step="0.001"
                               value={item.actual_quantity}
                               onChange={(e) => handleItemChange(index, 'actual_quantity', Number(e.target.value))}
                               aria-label="الكمية الفعلية"
+                              placeholder="مثال: 19.200"
                               className="w-24 px-3 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
                               dir="ltr"
                             />

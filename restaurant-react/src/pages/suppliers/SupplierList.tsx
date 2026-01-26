@@ -135,12 +135,6 @@ export default function SupplierList() {
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       <Link
-                        to={`/suppliers/${supplier.id}`}
-                        className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                      >
-                        عرض
-                      </Link>
-                      <Link
                         to={`/suppliers/${supplier.id}/edit`}
                         className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                         title="تعديل"
@@ -148,6 +142,7 @@ export default function SupplierList() {
                         <Edit className="w-4 h-4" />
                       </Link>
                       <button
+                        type="button"
                         onClick={() => handleDelete(supplier.id)}
                         disabled={deleteId === supplier.id}
                         className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"

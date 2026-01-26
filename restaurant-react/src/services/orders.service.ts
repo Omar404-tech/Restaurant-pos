@@ -172,7 +172,11 @@ export const ordersService = {
       .from('orders')
       .select(`
         *,
-        items:order_items(*, menu_item:menu_items(id, name_ar, code))
+        items:order_items(
+          *,
+          menu_item:menu_items(id, name_ar, code),
+          item:items(id, name_ar, code)
+        )
       `)
       .eq('branch_id', branchId)
       .in('status', ['paid', 'in_kitchen', 'preparing'])
@@ -347,9 +351,10 @@ export const ordersService = {
 
     if (orderError) return { data: null, error: orderError }
 
+    // Insert order items with item_id (for inventory deduction)
     const orderItems = orderData.items.map(item => ({
       order_id: order.id,
-      menu_item_id: item.item_id,
+      item_id: item.item_id, // This will trigger inventory deduction
       quantity: item.quantity,
       unit_price: item.unit_price,
       total_price: item.quantity * item.unit_price,

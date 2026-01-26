@@ -421,6 +421,10 @@ export interface PurchaseOrder {
   tax_amount?: number
   discount_amount?: number
   total_amount: number
+  payment_type: 'cash' | 'credit'
+  paid_amount: number
+  remaining_amount: number
+  payment_status: 'pending' | 'partial' | 'paid'
   status: string
   expected_delivery_date?: string
   notes?: string
@@ -433,6 +437,22 @@ export interface PurchaseOrder {
   branch?: Branch
   request?: PurchaseRequest
   items?: PurchaseOrderItem[]
+  payments?: PurchaseOrderPayment[]
+}
+
+// Purchase Order Payment
+export interface PurchaseOrderPayment {
+  id: string
+  order_id: string
+  payment_number: string
+  payment_date: string
+  amount: number
+  payment_method: string
+  reference_number?: string
+  notes?: string
+  created_by: string
+  created_at: string
+  updated_at: string
 }
 
 // Purchase Order Item

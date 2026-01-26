@@ -26,6 +26,16 @@ export default function RecipeDetail() {
     setLoading(false)
   }
 
+  // Calculate recipe cost from ingredients
+  const calculateRecipeCost = () => {
+    if (!recipe?.ingredients) return 0
+    return recipe.ingredients.reduce((total, ing) => {
+      const ingredient = ing.ingredient as Item
+      const cost = (ingredient?.purchase_price || 0) * (ing.quantity || 0)
+      return total + cost
+    }, 0)
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -91,12 +101,10 @@ export default function RecipeDetail() {
                 <p className="font-medium">{recipe.name_ar}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">سعر التكلفة</p>
-                <p className="font-medium">{recipe.purchase_price?.toLocaleString('ar-EG') || 0} ج.م</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">سعر البيع</p>
-                <p className="font-medium">{recipe.selling_price?.toLocaleString('ar-EG') || 0} ج.م</p>
+                <p className="text-sm text-gray-500">سعر التكلفة (محسوب من المكونات)</p>
+                <p className="font-medium text-orange-600 flex items-center gap-1">
+                  🧮 {calculateRecipeCost().toFixed(2)} ج.م
+                </p>
               </div>
               {recipe.description && (
                 <div className="col-span-2">

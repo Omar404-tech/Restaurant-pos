@@ -1,5 +1,5 @@
 import { useState, useEffect, FormEvent } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, Link } from 'react-router-dom'
 import { inventoryService } from '../../services/inventory.service'
 import { Category, ItemStatus } from '../../types/database.types'
 import { Save, ArrowRight, AlertCircle, Barcode } from 'lucide-react'
@@ -105,7 +105,7 @@ export default function ItemForm() {
     // Check if code exists
     const { exists } = await inventoryService.itemCodeExists(formData.code, id)
     if (exists) {
-      setError('كود الصنف موجود مسبقاً')
+      setError(`كود الصنف "${formData.code}" موجود مسبقاً. يمكنك مشاهدة جميع الأصناف من قائمة الأصناف أو استخدام كود مختلف.`)
       setLoading(false)
       return
     }
@@ -134,6 +134,27 @@ export default function ItemForm() {
     if (result.error) {
       setError('فشل في حفظ البيانات: ' + result.error.message)
     } else {
+      // If creating new item, add inventory record for main warehouse with quantity 0
+      if (!isEdit && result.data) {
+        // Get main warehouse (المخزن الرئيسي)
+        const { data: mainBranch } = await supabase
+          .from('branches')
+          .select('id')
+          .eq('is_main_warehouse', true)
+          .single()
+
+        if (mainBranch) {
+          // Create inventory record with 0 quantity
+          await supabase
+            .from('inventory')
+            .insert({
+              branch_id: mainBranch.id,
+              item_id: result.data.id,
+              quantity: 0,
+              min_quantity: formData.min_stock_level || 0
+            })
+        }
+      }
       navigate('/inventory/stock')
     }
     setLoading(false)
@@ -173,9 +194,21 @@ export default function ItemForm() {
       </div>
 
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
-          <p className="text-red-700">{error}</p>
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-red-700">{error}</p>
+              {error.includes('موجود مسبقاً') && (
+                <Link
+                  to="/inventory/items"
+                  className="inline-flex items-center gap-1 mt-2 text-sm text-red-600 hover:text-red-700 underline"
+                >
+                  عرض قائمة الأصناف
+                </Link>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -350,6 +383,8 @@ export default function ItemForm() {
             <input
               id="min_stock_level"
               type="number"
+              min="0"
+              step="0.001"
               value={formData.min_stock_level}
               onChange={(e) => handleChange('min_stock_level', Number(e.target.value))}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -366,6 +401,8 @@ export default function ItemForm() {
             <input
               id="max_stock_level"
               type="number"
+              min="0"
+              step="0.001"
               value={formData.max_stock_level}
               onChange={(e) => handleChange('max_stock_level', Number(e.target.value))}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"

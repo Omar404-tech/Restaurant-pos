@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { supabase, fixEncodingInData } from '../../lib/supabase'
 import { Package, Search, Filter, Plus, Download } from 'lucide-react'
 import { formatNumber } from '../../lib/utils'
 import { exportToExcel, consumptionColumns, formatDateForExcel } from '../../lib/excel'
+import { useAuth } from '../../contexts/AuthContext'
 
 interface ConsumptionItem {
   id: string
@@ -24,10 +25,21 @@ interface ConsumptionItem {
 }
 
 export default function ChefConsumption() {
+  const { user } = useAuth()
   const [items, setItems] = useState<ConsumptionItem[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [selectedDate, setSelectedDate] = useState('')
+
+  // Check if user has permission to access this page
+  const userRole = typeof user?.role === 'object' && user?.role !== null 
+    ? (user.role as { name: string }).name 
+    : user?.role
+
+  // Only admin and warehouse_manager can access chef consumption
+  if (userRole && !['admin', 'warehouse_manager'].includes(userRole)) {
+    return <Navigate to="/dashboard" replace />
+  }
 
   useEffect(() => {
     fetchConsumption()

@@ -1,8 +1,8 @@
-import { useState, useEffect, FormEvent, useRef } from 'react'
+import { useState, useEffect, FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase, fixEncodingInData } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
-import { Save, ArrowRight, AlertCircle, Plus, Trash2, Barcode, Search } from 'lucide-react'
+import { Save, ArrowRight, AlertCircle, Plus, Trash2, Search, X, Barcode } from 'lucide-react'
 
 interface Supplier {
   id: string
@@ -44,9 +44,7 @@ export default function SupplierReturnForm() {
     { item_id: '', quantity: 1, unit_price: 0, reason: '', notes: '' },
   ])
 
-  const [barcodeInput, setBarcodeInput] = useState('')
-  const [barcodeError, setBarcodeError] = useState('')
-  const barcodeInputRef = useRef<HTMLInputElement>(null)
+  const [searchTerm, setSearchTerm] = useState<{ [key: number]: string }>({})
 
   useEffect(() => {
     fetchData()
@@ -73,6 +71,16 @@ export default function SupplierReturnForm() {
     setReturnItems([...returnItems, { item_id: '', quantity: 1, unit_price: 0, reason: '', notes: '' }])
   }
 
+  const filteredItems = (index: number) => {
+    const term = searchTerm[index]?.toLowerCase() || ''
+    if (!term) return items
+    return items.filter(item => 
+      item.name_ar.toLowerCase().includes(term) ||
+      item.code.toLowerCase().includes(term) ||
+      (item.barcode && item.barcode.toLowerCase().includes(term))
+    )
+  }
+
   const removeItem = (index: number) => {
     if (returnItems.length > 1) {
       setReturnItems(returnItems.filter((_, i) => i !== index))
@@ -92,55 +100,6 @@ export default function SupplierReturnForm() {
     }
     
     setReturnItems(updated)
-  }
-
-  // Barcode search function
-  const handleBarcodeSearch = () => {
-    if (!barcodeInput.trim()) return
-    setBarcodeError('')
-
-    // Search by barcode or code
-    const item = items.find(i => i.barcode === barcodeInput.trim() || i.code === barcodeInput.trim())
-
-    if (item) {
-      // Check if item already exists in list
-      const existingIndex = returnItems.findIndex(ri => ri.item_id === item.id)
-      if (existingIndex >= 0) {
-        // Increment quantity
-        const updated = [...returnItems]
-        updated[existingIndex].quantity += 1
-        setReturnItems(updated)
-      } else {
-        // Add new item
-        const newItem: ReturnItem = {
-          item_id: item.id,
-          quantity: 1,
-          unit_price: item.purchase_price || 0,
-          reason: '',
-          notes: '',
-        }
-        // Replace empty item or add new
-        const emptyIndex = returnItems.findIndex(ri => !ri.item_id)
-        if (emptyIndex >= 0) {
-          const updated = [...returnItems]
-          updated[emptyIndex] = newItem
-          setReturnItems(updated)
-        } else {
-          setReturnItems([...returnItems, newItem])
-        }
-      }
-      setBarcodeInput('')
-      barcodeInputRef.current?.focus()
-    } else {
-      setBarcodeError(`لم يتم العثور على صنف بالباركود: ${barcodeInput}`)
-    }
-  }
-
-  const handleBarcodeKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      handleBarcodeSearch()
-    }
   }
 
   // Calculate totals
@@ -291,121 +250,183 @@ export default function SupplierReturnForm() {
             </button>
           </div>
 
-          {/* Barcode Scanner Input */}
-          <div className="mb-4 p-4 bg-teal-50 border border-teal-200 rounded-lg">
-            <label className="flex items-center gap-2 text-sm font-medium text-teal-800 mb-2">
-              <Barcode className="w-4 h-4" />
-              إضافة صنف بالباركود
-            </label>
-            <div className="flex gap-2">
-              <input
-                ref={barcodeInputRef}
-                type="text"
-                value={barcodeInput}
-                onChange={(e) => setBarcodeInput(e.target.value)}
-                onKeyPress={handleBarcodeKeyPress}
-                placeholder="امسح الباركود أو أدخل كود الصنف"
-                className="flex-1 px-4 py-2 border border-teal-300 rounded-lg focus:ring-2 focus:ring-teal-500"
-                dir="ltr"
-              />
-              <button
-                type="button"
-                onClick={handleBarcodeSearch}
-                className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
-                title="بحث بالباركود"
-                aria-label="بحث بالباركود"
-              >
-                <Search className="w-5 h-5" />
-              </button>
-            </div>
-            {barcodeError && <p className="text-red-600 text-sm mt-2">{barcodeError}</p>}
-            <p className="text-xs text-teal-600 mt-1">
-              استخدم قارئ الباركود أو أدخل الكود يدوياً ثم اضغط Enter
-            </p>
-          </div>
-
           {/* Items Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-right py-3 px-2 text-sm font-medium text-gray-700">الصنف</th>
-                  <th className="text-right py-3 px-2 text-sm font-medium text-gray-700">الكمية</th>
-                  <th className="text-right py-3 px-2 text-sm font-medium text-gray-700">سعر الوحدة</th>
-                  <th className="text-right py-3 px-2 text-sm font-medium text-gray-700">الإجمالي</th>
-                  <th className="text-right py-3 px-2 text-sm font-medium text-gray-700">السبب</th>
-                  <th className="py-3 px-2"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {returnItems.map((item, index) => (
-                  <tr key={index} className="border-b border-gray-100">
-                    <td className="py-3 px-2">
-                      <select
-                        value={item.item_id}
-                        onChange={(e) => updateItem(index, 'item_id', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                        aria-label="اختر الصنف"
-                      >
-                        <option value="">اختر الصنف</option>
-                        {items.map((i) => (
-                          <option key={i.id} value={i.id}>
-                            {i.name_ar} ({i.code})
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="py-3 px-2">
-                      <input
-                        type="number"
-                        min="1"
-                        value={item.quantity}
-                        onChange={(e) => updateItem(index, 'quantity', Number(e.target.value))}
-                        className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                        dir="ltr"
-                        aria-label="الكمية"
-                      />
-                    </td>
-                    <td className="py-3 px-2">
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={item.unit_price}
-                        onChange={(e) => updateItem(index, 'unit_price', Number(e.target.value))}
-                        className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                        dir="ltr"
-                        aria-label="سعر الوحدة"
-                      />
-                    </td>
-                    <td className="py-3 px-2 text-sm font-medium text-gray-900">
-                      {(item.quantity * item.unit_price).toLocaleString('ar-EG')} ج.م
-                    </td>
-                    <td className="py-3 px-2">
-                      <input
-                        type="text"
-                        value={item.reason}
-                        onChange={(e) => updateItem(index, 'reason', e.target.value)}
-                        className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                        placeholder="السبب"
-                        aria-label="السبب"
-                      />
-                    </td>
-                    <td className="py-3 px-2">
-                      <button
-                        type="button"
-                        onClick={() => removeItem(index)}
-                        disabled={returnItems.length === 1}
-                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed"
-                        title="حذف"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-4">
+            {returnItems.map((item, index) => {
+              const selectedItem = items.find(i => i.id === item.item_id)
+              const searchResults = filteredItems(index)
+              const showResults = searchTerm[index] && searchResults.length > 0
+              
+              return (
+                <div key={index} className="p-4 rounded-lg border bg-gray-50 border-gray-200">
+                  <div className="space-y-3">
+                    {/* Search Input with Icon */}
+                    <div className="relative">
+                      <div className="flex items-center gap-2 bg-blue-50 rounded-lg p-2">
+                        <div className="bg-blue-600 text-white p-2 rounded-lg">
+                          <Search className="w-5 h-5" />
+                        </div>
+                        <input
+                          type="text"
+                          placeholder="امسح الباركود أو أدخل الكود أو اسم الصنف"
+                          value={searchTerm[index] || ''}
+                          onChange={(e) => {
+                            setSearchTerm({ ...searchTerm, [index]: e.target.value })
+                            // Auto-select if only one result
+                            const results = items.filter(i => 
+                              i.name_ar.toLowerCase().includes(e.target.value.toLowerCase()) ||
+                              i.code.toLowerCase().includes(e.target.value.toLowerCase()) ||
+                              (i.barcode && i.barcode.toLowerCase().includes(e.target.value.toLowerCase()))
+                            )
+                            if (results.length === 1 && e.target.value.length > 2) {
+                              updateItem(index, 'item_id', results[0].id)
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && searchResults.length > 0) {
+                              updateItem(index, 'item_id', searchResults[0].id)
+                              setSearchTerm({ ...searchTerm, [index]: '' })
+                            }
+                          }}
+                          className="flex-1 px-3 py-2 border-0 bg-transparent focus:outline-none text-gray-700 placeholder-gray-500"
+                        />
+                      </div>
+                      
+                      {/* Search Results Dropdown */}
+                      {showResults && (
+                        <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto mt-1">
+                          {searchResults.map(i => (
+                            <button
+                              key={i.id}
+                              type="button"
+                              onClick={() => {
+                                updateItem(index, 'item_id', i.id)
+                                setSearchTerm({ ...searchTerm, [index]: '' })
+                              }}
+                              className="w-full text-right px-4 py-3 hover:bg-blue-50 border-b border-gray-100 last:border-0 transition-colors"
+                            >
+                              <div className="font-medium text-gray-900">{i.name_ar}</div>
+                              <div className="text-sm text-gray-500 flex items-center gap-2 mt-1">
+                                <span>الكود: {i.code}</span>
+                                {i.barcode && (
+                                  <>
+                                    <span>•</span>
+                                    <span>الباركود: {i.barcode}</span>
+                                  </>
+                                )}
+                                {i.purchase_price && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="text-green-600">{i.purchase_price} ج.م</span>
+                                  </>
+                                )}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* Selected Item Display */}
+                      {selectedItem && (
+                        <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium text-green-900">{selectedItem.name_ar}</p>
+                              <p className="text-sm text-green-700">
+                                الكود: {selectedItem.code}
+                                {selectedItem.barcode && ` | الباركود: ${selectedItem.barcode}`}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                updateItem(index, 'item_id', '')
+                                setSearchTerm({ ...searchTerm, [index]: '' })
+                              }}
+                              className="text-red-500 hover:text-red-700"
+                              title="إلغاء الاختيار"
+                            >
+                              <X className="w-5 h-5" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Helper Text */}
+                      {!selectedItem && !searchTerm[index] && (
+                        <p className="text-sm text-blue-600 mt-2 flex items-center gap-2">
+                          <Barcode className="w-4 h-4" />
+                          استخدم قارئ الباركود أو أدخل الكود يدوياً ثم اضغط Enter
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Item Details */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">الكمية</label>
+                        <input
+                          type="number"
+                          min="0.001"
+                          step="0.001"
+                          value={item.quantity}
+                          onChange={(e) => updateItem(index, 'quantity', Number(e.target.value))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                          placeholder="مثال: 19.200"
+                          dir="ltr"
+                          aria-label="الكمية"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">سعر الوحدة</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={item.unit_price}
+                          onChange={(e) => updateItem(index, 'unit_price', Number(e.target.value))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                          dir="ltr"
+                          aria-label="سعر الوحدة"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">الإجمالي</label>
+                        <div className="px-3 py-2 bg-gray-100 rounded-lg text-sm font-medium text-gray-900">
+                          {(item.quantity * item.unit_price).toLocaleString('ar-EG')} ج.م
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">السبب</label>
+                        <input
+                          type="text"
+                          value={item.reason}
+                          onChange={(e) => updateItem(index, 'reason', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                          placeholder="السبب"
+                          aria-label="السبب"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Remove Button */}
+                    {returnItems.length > 1 && (
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => removeItem(index)}
+                          className="flex items-center gap-1 px-3 py-1.5 text-red-600 hover:bg-red-50 rounded-lg text-sm"
+                          title="حذف"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          حذف الصنف
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
           </div>
 
           {/* Total */}

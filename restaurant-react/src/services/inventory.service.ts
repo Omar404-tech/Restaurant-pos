@@ -127,7 +127,7 @@ export const inventoryService = {
   async getStock(branchId?: string) {
     let query = supabase
       .from('inventory')
-      .select('*, item:items(id, code, name_ar, min_stock_level, category_id, unit:units(id, name_ar, code), category:categories(id, name_ar)), branch:branches(id, name_ar, code)')
+      .select('*, item:items(id, code, name_ar, min_stock_level, category_id, purchase_price, selling_price, unit:units(id, name_ar, code), category:categories(id, name_ar)), branch:branches(id, name_ar, code)')
       .order('quantity', { ascending: true })
 
     if (branchId) {
@@ -141,9 +141,9 @@ export const inventoryService = {
   async getStockByBranch(branchId: string) {
     const { data, error } = await supabase
       .from('inventory')
-      .select('*, item:items(id, code, name_ar, min_stock_level, category_id, unit:units(id, name_ar, code), category:categories(id, name_ar))')
+      .select('*, item:items(id, code, name_ar, min_stock_level, category_id, purchase_price, selling_price, unit:units(id, name_ar, code), category:categories(id, name_ar))')
       .eq('branch_id', branchId)
-      .order('quantity', { ascending: true })
+      .order('created_at', { ascending: false })
 
     return { data: fixEncodingInData(data) as InventoryWithDetails[], error }
   },

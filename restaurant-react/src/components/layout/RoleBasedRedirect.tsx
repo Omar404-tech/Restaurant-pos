@@ -22,7 +22,7 @@ export default function RoleBasedRedirect() {
     case 'cashier':
       return <Navigate to="/pos/cashier" replace />
     case 'branch_supervisor':
-      return <Navigate to="/inventory" replace />
+      return <Navigate to="/transfers" replace />
     case 'warehouse_manager':
       return <Navigate to="/inventory" replace />
     case 'purchase_manager':

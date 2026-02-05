@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { notificationsService, Notification } from '../../services/notifications.service'
-import { Menu, Bell, User, LogOut, Settings, ChevronDown, Check, CheckCheck } from 'lucide-react'
+import { Menu, Bell, User, LogOut, Info, ChevronDown, Check, CheckCheck } from 'lucide-react'
 
 interface NavbarProps {
   onMenuClick: () => void
@@ -272,12 +272,12 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
                 type="button"
                 onClick={() => {
                   setIsDropdownOpen(false)
-                  navigate('/settings')
+                  navigate('/about')
                 }}
                 className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
               >
-                <Settings className="w-4 h-4" />
-                الإعدادات
+                <Info className="w-4 h-4" />
+                حول التطبيق
               </button>
               <button
                 type="button"

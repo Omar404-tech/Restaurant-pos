@@ -160,9 +160,29 @@ export default function PurchaseOrderForm() {
 
     if (itemsError) {
       setError('فشل في حفظ أصناف الأمر')
-    } else {
-      navigate('/purchase/orders')
+      setLoading(false)
+      return
     }
+
+    // Update purchase prices in items table
+    console.log('Updating purchase prices for items...')
+    for (const item of validItems) {
+      const { error: priceUpdateError } = await supabase
+        .from('items')
+        .update({ 
+          purchase_price: item.unit_price,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', item.item_id)
+      
+      if (priceUpdateError) {
+        console.error(`Failed to update price for item ${item.item_id}:`, priceUpdateError)
+      } else {
+        console.log(`✅ Updated purchase price for item ${item.item_id} to ${item.unit_price}`)
+      }
+    }
+
+    navigate('/purchase/orders')
     setLoading(false)
   }
 

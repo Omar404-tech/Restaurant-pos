@@ -36,7 +36,7 @@ export default function StockList() {
     const nonMainBranches = allBranches.filter(b => !b.is_main_warehouse)
     setBranches(nonMainBranches)
     setCategories(categoriesRes.data || [])
-    
+
     // Get main warehouse ID and fetch its stock
     const mainWarehouse = allBranches.find(b => b.is_main_warehouse)
     if (mainWarehouse) {
@@ -48,7 +48,7 @@ export default function StockList() {
 
   const fetchStock = async () => {
     setLoading(true)
-    
+
     if (selectedBranch) {
       // Fetch selected branch stock
       const { data } = await inventoryService.getStockByBranch(selectedBranch)
@@ -66,7 +66,7 @@ export default function StockList() {
       }
       setIsMainWarehouse(true)
     }
-    
+
     setLoading(false)
   }
 
@@ -94,7 +94,7 @@ export default function StockList() {
   )
 
   // Get selected branch name
-  const selectedBranchName = selectedBranch 
+  const selectedBranchName = selectedBranch
     ? branches.find(b => b.id === selectedBranch)?.name_ar || 'الفرع'
     : 'المخزن الرئيسي'
 
@@ -113,11 +113,11 @@ export default function StockList() {
   // Export to Excel
   const handleExport = () => {
     const exportData = filteredStock.map(inv => {
-      const item = inv.item as { code?: string; name_ar?: string; unit?: { name_ar?: string; code?: string } | string }
+      const item = inv.item as { code?: string; name_ar?: string; unit?: { name_ar?: string; code?: string } | string; purchase_price?: number; selling_price?: number }
       const branch = inv.branch as { name_ar?: string }
       // Handle unit as object or string
-      const unitValue = typeof item?.unit === 'object' 
-        ? (item?.unit?.name_ar || item?.unit?.code || '') 
+      const unitValue = typeof item?.unit === 'object'
+        ? (item?.unit?.name_ar || item?.unit?.code || '')
         : (item?.unit || '')
       return {
         item_code: item?.code || '',
@@ -126,6 +126,8 @@ export default function StockList() {
         quantity: inv.quantity || 0,
         unit: unitValue,
         min_quantity: inv.min_quantity || 0,
+        purchase_price: item?.purchase_price || 0,
+        selling_price: item?.selling_price || 0,
       }
     })
     exportToExcel(exportData, inventoryColumns, `مخزون_${selectedBranchName}`)
@@ -135,24 +137,19 @@ export default function StockList() {
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    
-    // Confirm before replacing data
-    if (!confirm('سيتم حذف بيانات المخزون الحالية واستبدالها بالبيانات الجديدة. هل تريد المتابعة؟')) {
-      return
-    }
-    
+
     try {
       setLoading(true)
       const text = await readFileAsText(file)
       const data = parseCSV(text)
       console.log('Imported data:', data)
-      
+
       if (data.length === 0) {
         alert('الملف فارغ أو غير صالح')
         setLoading(false)
         return
       }
-      
+
       // Get target branch (selected or main warehouse)
       let targetBranchId = selectedBranch
       if (!targetBranchId) {
@@ -165,100 +162,138 @@ export default function StockList() {
         setLoading(false)
         return
       }
-      
-      // Clear old inventory for this branch first
-      console.log('Clearing old inventory for branch:', targetBranchId)
-      const { error: clearError } = await inventoryService.clearBranchInventory(targetBranchId)
-      if (clearError) {
-        console.error('Failed to clear inventory:', clearError)
-        alert('فشل في مسح البيانات القديمة: ' + clearError.message)
-        setLoading(false)
-        return
-      }
-      
+
       // Get all items to match by code
       const { data: allItems } = await inventoryService.getAllItems()
       const itemMap = new Map((allItems || []).map(i => [i.code?.toLowerCase(), i]))
-      
+
       // Get units for mapping
       const { data: units } = await inventoryService.getUnits()
       const defaultUnit = units?.find(u => u.code === 'PC' || u.code === 'KG') || units?.[0]
-      
+
       let successCount = 0
       let newItemsCount = 0
       let errorCount = 0
       const errors: string[] = []
-      
+
       console.log('CSV Headers:', Object.keys(data[0] || {}))
       console.log('Default unit:', defaultUnit)
-      
+
       for (const row of data) {
         // Get item data from CSV
         const itemCode = (row['كود الصنف'] || row['item_code'] || row['كود'] || '').toString().trim()
         const itemName = (row['اسم الصنف'] || row['item_name'] || row['الاسم'] || '').toString().trim()
         const quantity = parseFloat(row['الكمية'] || row['quantity'] || row['الرصيد إجمالي'] || '0')
+        const purchasePrice = parseFloat(row['سعر الشراء'] || row['purchase_price'] || '0')
+        const sellingPrice = parseFloat(row['سعر البيع'] || row['selling_price'] || '0')
         // Handle unit - could be string or [object Object] from bad export
         let unitRaw = row['الوحدة'] || row['unit'] || row['وصف المحتوى'] || ''
         const unitName = (typeof unitRaw === 'object' ? '' : unitRaw.toString()).trim()
-        
-        console.log('Processing row:', { itemCode, itemName, quantity, unitName, row })
-        
+
+        console.log('Processing row:', { itemCode, itemName, quantity, purchasePrice, sellingPrice, unitName, row })
+
         if (!itemCode) {
           errorCount++
           errors.push(`سطر بدون كود صنف`)
           continue
         }
-        
+
+        if (!itemName) {
+          errorCount++
+          errors.push(`سطر بدون اسم صنف: ${itemCode}`)
+          continue
+        }
+
         let item = itemMap.get(itemCode.toLowerCase())
-        
+
         // If item doesn't exist, create it
         if (!item) {
           // Find matching unit or use default
-          const matchedUnit = units?.find(u => 
-            u.name_ar === unitName || 
+          const matchedUnit = units?.find(u =>
+            u.name_ar === unitName ||
             u.code?.toLowerCase() === unitName.toLowerCase()
           ) || defaultUnit
-          
-          if (!matchedUnit) {
+
+          if (!matchedUnit || !matchedUnit.id) {
             errorCount++
             errors.push(`لا توجد وحدة قياس للصنف ${itemCode}`)
+            console.error(`No valid unit found for item ${itemCode}. unitName: ${unitName}, matchedUnit:`, matchedUnit)
             continue
           }
-          
-          console.log(`Creating new item: ${itemCode} - ${itemName || itemCode}, unit: ${matchedUnit.code}`)
-          const { data: newItem, error: createError } = await inventoryService.createItem({
+
+          console.log(`Creating new item: ${itemCode} - ${itemName}, unit: ${matchedUnit.code} (${matchedUnit.id}), prices: ${purchasePrice}/${sellingPrice}`)
+
+          const itemToCreate = {
             code: itemCode,
-            name: itemName || itemCode,
-            name_ar: itemName || itemCode,
-            unit: matchedUnit.id, // Use unit_id
+            name: itemName,
+            name_ar: itemName,
+            unit: matchedUnit.id,
             min_stock_level: 0,
-            status: 'active',
-          })
-          
+            purchase_price: purchasePrice || 0,
+            selling_price: sellingPrice || 0,
+            status: 'active' as const,
+          }
+
+          console.log('Item data to create:', itemToCreate)
+
+          const { data: newItem, error: createError } = await inventoryService.createItem(itemToCreate)
+
           if (createError || !newItem) {
             errorCount++
-            errors.push(`فشل إنشاء الصنف ${itemCode}: ${createError?.message || 'خطأ غير معروف'}`)
-            console.log(`Failed to create item: ${itemCode}`, createError)
+            const errorMsg = createError?.message || 'خطأ غير معروف - تحقق من صلاحيات RLS'
+            errors.push(`فشل إنشاء الصنف ${itemCode}: ${errorMsg}`)
+            console.error(`❌ Failed to create item: ${itemCode}`)
+            console.error('Error details:', createError)
+            console.error('Item data:', itemToCreate)
             continue
           }
-          
+
+          // Verify item was actually created in database
+          const { data: verifyItem } = await inventoryService.getItemById(newItem.id)
+          if (!verifyItem) {
+            errorCount++
+            errors.push(`فشل التحقق من إنشاء الصنف ${itemCode} - قد تكون هناك مشكلة في صلاحيات قاعدة البيانات`)
+            console.error(`❌ Item creation returned success but item not found in DB: ${itemCode}`)
+            continue
+          }
+
           item = newItem
           itemMap.set(itemCode.toLowerCase(), newItem)
           newItemsCount++
-          console.log(`Created new item: ${newItem.code} - ${newItem.name_ar}`)
+          console.log(`✅ Created and verified new item: ${newItem.code} - ${newItem.name_ar} (ID: ${newItem.id})`)
+        } else if (purchasePrice > 0 || sellingPrice > 0) {
+          // Update existing item prices if provided
+          const updateData: { purchase_price?: number; selling_price?: number } = {}
+          if (purchasePrice > 0) updateData.purchase_price = purchasePrice
+          if (sellingPrice > 0) updateData.selling_price = sellingPrice
+
+          if (Object.keys(updateData).length > 0) {
+            await inventoryService.updateItem(item.id, updateData)
+            console.log(`Updated prices for item: ${item.code}`)
+          }
         }
-        
-        // Update stock
+
+        // Update stock - make sure we have a valid item
+        if (!item || !item.id) {
+          errorCount++
+          errors.push(`فشل في الحصول على معرف الصنف ${itemCode}`)
+          console.error(`No item ID for: ${itemCode}`)
+          continue
+        }
+
+        console.log(`Updating stock for item ${item.code} (${item.id}): quantity=${quantity}`)
         const { error: stockError } = await inventoryService.updateStock(targetBranchId, item.id, quantity)
-        
+
         if (stockError) {
           errorCount++
           errors.push(`فشل تحديث مخزون ${itemCode}: ${stockError.message}`)
+          console.error(`Stock update failed for ${itemCode}:`, stockError)
         } else {
           successCount++
+          console.log(`✅ Stock updated for ${itemCode}`)
         }
       }
-      
+
       // Show result
       let message = `تم استيراد ${successCount} سجل بنجاح`
       if (newItemsCount > 0) {
@@ -271,18 +306,31 @@ export default function StockList() {
         }
       }
       alert(message)
-      
-      // Refresh data
-      const { data: freshData } = await inventoryService.getStockByBranch(targetBranchId)
-      setStock(freshData || [])
+
+      // Wait a moment for database to commit
+      await new Promise(resolve => setTimeout(resolve, 500))
+
+      // Refresh data - fetch complete inventory with all relations
+      console.log('Refreshing inventory data for branch:', targetBranchId)
+      const { data: freshData, error: fetchError } = await inventoryService.getStockByBranch(targetBranchId)
+
+      if (fetchError) {
+        console.error('Failed to refresh inventory:', fetchError)
+        alert('تم الاستيراد بنجاح ولكن فشل تحديث العرض. يرجى تحديث الصفحة.')
+      } else {
+        console.log('✅ Refreshed inventory:', freshData?.length, 'items')
+        console.log('First 3 items:', freshData?.slice(0, 3))
+        setStock(freshData || [])
+      }
+
       setLoading(false)
-      
+
     } catch (error) {
       console.error('Import error:', error)
       alert('فشل في قراءة الملف')
       setLoading(false)
     }
-    
+
     // Reset input
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
@@ -449,13 +497,17 @@ export default function StockList() {
                   <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">المحتوى بالكمية</th>
                   <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">الرصيد إجمالي</th>
                   <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">وصف المحتوى</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">سعر الشراء</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">سعر البيع</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filteredStock.map((inv, index) => {
-                  const item = inv.item as unknown as { code?: string; name_ar?: string; category?: { name_ar: string }; unit?: { name_ar: string; code: string } }
+                  const item = inv.item as unknown as { code?: string; name_ar?: string; category?: { name_ar: string }; unit?: { name_ar: string; code: string }; purchase_price?: number; selling_price?: number }
                   const categoryName = item?.category?.name_ar || '-'
                   const unitName = item?.unit?.name_ar || item?.unit?.code || 'كرتونة'
+                  const purchasePrice = item?.purchase_price || 0
+                  const sellingPrice = item?.selling_price || 0
                   return (
                     <tr key={inv.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                       <td className="px-4 py-3 text-gray-900">{index + 1}</td>
@@ -467,6 +519,8 @@ export default function StockList() {
                       <td className="px-4 py-3 text-gray-600">-</td>
                       <td className="px-4 py-3 text-gray-900 font-medium">{formatNumber(inv.quantity)}</td>
                       <td className="px-4 py-3 text-gray-500 text-sm">{unitName}</td>
+                      <td className="px-4 py-3 text-blue-600 font-medium">{formatNumber(purchasePrice)} ج</td>
+                      <td className="px-4 py-3 text-green-600 font-medium">{formatNumber(sellingPrice)} ج</td>
                     </tr>
                   )
                 })}
@@ -488,15 +542,19 @@ export default function StockList() {
                   <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">المحتوى</th>
                   <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">كلي</th>
                   <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">وصف المحتوى</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">سعر الشراء</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">سعر البيع</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filteredStock.map((inv, index) => {
-                  const item = inv.item as unknown as { code?: string; name_ar?: string; unit?: { name_ar: string; code: string } }
+                  const item = inv.item as unknown as { code?: string; name_ar?: string; unit?: { name_ar: string; code: string }; purchase_price?: number; selling_price?: number }
                   const unitName = item?.unit?.name_ar || item?.unit?.code || 'قطعة'
                   const totalQty = inv.quantity || 0
                   const createdAt = (inv as unknown as { created_at?: string }).created_at || new Date().toISOString()
-                  
+                  const purchasePrice = item?.purchase_price || 0
+                  const sellingPrice = item?.selling_price || 0
+
                   return (
                     <tr key={inv.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                       <td className="px-4 py-3 text-gray-900">{index + 1}</td>
@@ -508,6 +566,8 @@ export default function StockList() {
                       <td className="px-4 py-3 text-gray-600">1</td>
                       <td className="px-4 py-3 text-gray-900 font-medium">{formatNumber(totalQty)}</td>
                       <td className="px-4 py-3 text-gray-500 text-sm">{unitName}</td>
+                      <td className="px-4 py-3 text-blue-600 font-medium">{formatNumber(purchasePrice)} ج</td>
+                      <td className="px-4 py-3 text-green-600 font-medium">{formatNumber(sellingPrice)} ج</td>
                     </tr>
                   )
                 })}

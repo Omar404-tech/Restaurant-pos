@@ -51,9 +51,9 @@ const navigation: NavItem[] = [
   { name: 'الأوردرات', href: '/orders', icon: Receipt, roles: ['admin'] },
   { name: 'الشيفتات', href: '/shifts', icon: Clock, roles: ['admin'] },
   { name: 'التقارير', href: '/reports', icon: BarChart3, roles: ['admin', 'warehouse_manager'] },
+  { name: 'كشف حساب المورد', href: '/reports/supplier-statement', icon: BarChart3, roles: ['purchase_manager'] },
   { name: 'طلبات الشراء', href: '/purchase', icon: ClipboardList, roles: ['admin', 'purchase_manager', 'warehouse_manager'] },
   { name: 'المستخدمين', href: '/users', icon: Users, roles: ['admin'] },
-  { name: 'الإعدادات', href: '/settings', icon: Settings, roles: ['admin'] },
 ]
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {

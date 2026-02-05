@@ -10,7 +10,6 @@ import {
   DollarSign,
   CreditCard,
   Edit,
-  Printer,
   Package,
 } from 'lucide-react';
 
@@ -66,10 +65,6 @@ export default function OrderDetail() {
 
   const formatCurrency = (amount: number) => (amount || 0).toLocaleString('ar-EG') + ' ج.م';
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -104,10 +99,6 @@ export default function OrderDetail() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
-            <Printer className="w-4 h-4" />
-            طباعة
-          </button>
           <Link to={`/orders/${id}/edit`} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
             <Edit className="w-4 h-4" />
             تعديل

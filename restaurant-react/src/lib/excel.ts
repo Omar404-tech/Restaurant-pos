@@ -119,6 +119,8 @@ export const inventoryColumns: ExcelColumn[] = [
   { key: 'quantity', header: 'الكمية' },
   { key: 'unit', header: 'الوحدة' },
   { key: 'min_quantity', header: 'الحد الأدنى' },
+  { key: 'purchase_price', header: 'سعر الشراء' },
+  { key: 'selling_price', header: 'سعر البيع' },
 ]
 
 // Transfers columns

@@ -90,8 +90,8 @@ import ShiftDetail from './pages/shifts/ShiftDetail'
 // Users
 import UserList from './pages/users/UserList'
 
-// Settings
-import Settings from './pages/settings/Settings'
+// About
+import About from './pages/settings/About'
 
 // Placeholder for routes not yet implemented
 const PlaceholderPage = ({ title }: { title: string }) => (
@@ -216,8 +216,8 @@ function App() {
             <Route path="/users/new" element={<PlaceholderPage title="مستخدم جديد" />} />
             <Route path="/users/:id/edit" element={<PlaceholderPage title="تعديل المستخدم" />} />
 
-            {/* Settings */}
-            <Route path="/settings" element={<Settings />} />
+            {/* About */}
+            <Route path="/about" element={<About />} />
           </Route>
 
           {/* Catch all - redirect to dashboard */}

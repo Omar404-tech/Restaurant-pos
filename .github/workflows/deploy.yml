@@ -2,7 +2,8 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: ['main']
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -11,8 +12,8 @@ permissions:
   id-token: write
 
 concurrency:
-  group: 'pages'
-  cancel-in-progress: true
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -34,14 +35,7 @@ jobs:
 
       - name: Build
         working-directory: restaurant-react
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-        run: npx vite build
-
-      - name: Copy 404.html for SPA routing
-        working-directory: restaurant-react
-        run: cp dist/index.html dist/404.html
+        run: npm run build
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

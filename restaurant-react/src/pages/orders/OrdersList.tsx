@@ -42,6 +42,9 @@ export default function OrdersList() {
   const [filters, setFilters] = useState({
     branchId: '',
     status: '' as OrderStatus | '',
+    paymentMethod: '',
+    startDate: '',
+    endDate: '',
   });
 
   useEffect(() => {
@@ -63,7 +66,27 @@ export default function OrdersList() {
       filters.branchId || undefined,
       filters.status || undefined
     );
-    setOrders(data || []);
+    
+    // Apply client-side filters for payment method and date
+    let filteredData = data || [];
+    
+    if (filters.paymentMethod) {
+      filteredData = filteredData.filter(order => order.payment_method === filters.paymentMethod);
+    }
+    
+    if (filters.startDate) {
+      filteredData = filteredData.filter(order => 
+        new Date(order.created_at) >= new Date(filters.startDate)
+      );
+    }
+    
+    if (filters.endDate) {
+      filteredData = filteredData.filter(order => 
+        new Date(order.created_at) <= new Date(filters.endDate + 'T23:59:59')
+      );
+    }
+    
+    setOrders(filteredData);
     setLoading(false);
   };
 
@@ -98,7 +121,7 @@ export default function OrdersList() {
           <Filter className="w-5 h-5 text-gray-500" />
           <span className="font-medium">فلترة</span>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
           <select
             value={filters.branchId}
             onChange={(e) => setFilters({ ...filters, branchId: e.target.value })}
@@ -121,11 +144,41 @@ export default function OrdersList() {
               <option key={key} value={key}>{label}</option>
             ))}
           </select>
+          <select
+            value={filters.paymentMethod}
+            onChange={(e) => setFilters({ ...filters, paymentMethod: e.target.value })}
+            className="px-4 py-2 border border-gray-300 rounded-lg"
+            aria-label="طريقة الدفع"
+          >
+            <option value="">كل طرق الدفع</option>
+            <option value="cash">كاش</option>
+            <option value="visa">فيزا</option>
+            <option value="instapay">إنستاباي</option>
+            <option value="vodafone_cash">فودافون كاش</option>
+          </select>
+          <input
+            type="date"
+            value={filters.startDate}
+            onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+            className="px-4 py-2 border border-gray-300 rounded-lg"
+            placeholder="من تاريخ"
+            aria-label="من تاريخ"
+          />
+          <input
+            type="date"
+            value={filters.endDate}
+            onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+            className="px-4 py-2 border border-gray-300 rounded-lg"
+            placeholder="إلى تاريخ"
+            aria-label="إلى تاريخ"
+          />
+        </div>
+        <div className="mt-4">
           <button
-            onClick={() => setFilters({ branchId: '', status: '' })}
+            onClick={() => setFilters({ branchId: '', status: '', paymentMethod: '', startDate: '', endDate: '' })}
             className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
           >
-            إعادة تعيين
+            إعادة تعيين الفلاتر
           </button>
         </div>
       </div>

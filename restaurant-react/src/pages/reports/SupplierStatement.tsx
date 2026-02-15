@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { suppliersService } from '../../services/suppliers.service';
 import { formatDate, formatCurrency } from '../../lib/utils';
@@ -27,6 +28,7 @@ interface StatementData {
 }
 
 export default function SupplierStatement() {
+  const { user } = useAuth();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [selectedSupplier, setSelectedSupplier] = useState<string>('');
   const [startDate, setStartDate] = useState(() => {
@@ -37,6 +39,12 @@ export default function SupplierStatement() {
   const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [data, setData] = useState<StatementData | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Check if user is purchase_manager
+  const userRole = typeof user?.role === 'object' && user?.role !== null 
+    ? (user.role as { name: string }).name 
+    : String(user?.role || '');
+  const isPurchaseManager = userRole === 'مدير فرع' || userRole === 'purchase_manager';
 
   useEffect(() => {
     fetchSuppliers();
@@ -284,7 +292,7 @@ export default function SupplierStatement() {
             <p className="text-gray-600">عرض تفاصيل حساب المورد</p>
           </div>
         </div>
-        {data && (
+        {data && !isPurchaseManager && (
           <button
             type="button"
             onClick={handlePrint}

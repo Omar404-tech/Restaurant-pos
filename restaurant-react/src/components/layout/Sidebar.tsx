@@ -38,9 +38,9 @@ interface NavItem {
 const navigation: NavItem[] = [
   { name: 'لوحة التحكم', href: '/dashboard', icon: LayoutDashboard, roles: ['admin'] },
   { name: 'الفروع', href: '/branches', icon: Building2, roles: ['admin', 'warehouse_manager'] },
-  { name: 'الموردين', href: '/suppliers', icon: Truck, roles: ['admin', 'warehouse_manager', 'purchase_manager'] },
-  { name: 'المخزون', href: '/inventory', icon: Package, roles: ['admin', 'warehouse_manager'] },
-  { name: 'الريسبيات', href: '/recipes', icon: CookingPot, roles: ['admin', 'warehouse_manager'] },
+  { name: 'الموردين', href: '/suppliers', icon: Truck, roles: ['admin', 'purchase_manager'] },
+  { name: 'المخزون', href: '/inventory', icon: Package, roles: ['admin'] },
+  { name: 'الريسبيات', href: '/recipes', icon: CookingPot, roles: ['admin'] },
   { name: 'التحويلات', href: '/transfers', icon: ArrowLeftRight, roles: ['admin', 'warehouse_manager', 'branch_supervisor'] },
   { name: 'المرتجعات', href: '/returns', icon: Undo2, roles: ['admin', 'warehouse_manager', 'branch_supervisor'] },
   { name: 'التالف', href: '/damages', icon: AlertTriangle, roles: ['admin', 'warehouse_manager', 'branch_supervisor'] },

@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { data: dbUsers, error: dbError } = await supabase
           .from('users')
           .select('*, branch:branches(*), role:roles(*)')
-          .eq('email', email)
+          .ilike('email', email)
           .eq('status', 'active')
 
         if (!dbError && dbUsers && dbUsers.length > 0) {

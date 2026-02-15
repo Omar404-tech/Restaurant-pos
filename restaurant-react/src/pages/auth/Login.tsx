@@ -117,7 +117,7 @@ export default function Login() {
 
         {/* Footer */}
         <p className="text-center text-gray-500 text-sm mt-6">
-          © 2025 Hive Tech AI. جميع الحقوق محفوظة.
+          © 2026 Hive Tech AI. جميع الحقوق محفوظة.
         </p>
       </div>
     </div>

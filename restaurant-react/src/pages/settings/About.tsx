@@ -115,7 +115,7 @@ export default function About() {
 
       {/* Footer */}
       <div className="bg-gray-900 text-white rounded-lg p-6 text-center">
-        <p className="text-lg font-semibold mb-2">© 2025 Hive Tech AI. جميع الحقوق محفوظة.</p>
+        <p className="text-lg font-semibold mb-2">© 2026 Hive Tech AI. جميع الحقوق محفوظة.</p>
         <p className="text-gray-400 text-sm">
           تم التطوير بواسطة Hive Tech AI - حلول تقنية متقدمة
         </p>
